@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from psycopg2.extras import execute_values
 from logger_config import get_logger
 
+
 load_dotenv()
 
 logger = get_logger(__name__)
@@ -17,24 +18,24 @@ def get_connection():
         password=os.getenv("DB_PASSWORD")
     )
 
-def store_chunks(document_name, chunks, embeddings, file_size=None):
+def store_chunks(document_name, chunks, embeddings, user_id , file_size=None):
     try:
         conn = get_connection()
         cur = conn.cursor()
 
         data = [
-            (document_name, chunk, embedding, file_size)
+            (document_name, chunk, embedding, file_size ,user_id)
             for chunk, embedding in zip(chunks, embeddings)
         ]
 
         execute_values(
             cur,
             """
-            INSERT INTO document_chunks (document_name, chunk_text, embedding, file_size)
+            INSERT INTO document_chunks (document_name, chunk_text, embedding, file_size , user_id)
             VALUES %s
             """,
             data,
-            template="(%s, %s, %s::vector, %s)"
+            template="(%s, %s, %s::vector, %s , %s)"
         )
 
         conn.commit()
@@ -50,20 +51,32 @@ def store_chunks(document_name, chunks, embeddings, file_size=None):
         logger.error(f"Failed to store chunks for '{document_name}': {str(e)}")
         raise
 
-def search_similar_chunks(query_embedding, top_k=10):
+def search_similar_chunks(query_embedding, user_id, is_admin=False, top_k=10):
     try:
         conn = get_connection()
         cur = conn.cursor()
 
-        cur.execute(
-            """
-            SELECT document_name, chunk_text, embedding <-> %s::vector AS distance
-            FROM document_chunks
-            ORDER BY distance ASC
-            LIMIT %s
-            """,
-            (query_embedding, top_k)
-        )
+        if is_admin:
+            cur.execute(
+                """
+                SELECT document_name, chunk_text, embedding <-> %s::vector AS distance
+                FROM document_chunks
+                ORDER BY distance ASC
+                LIMIT %s
+                """,
+                (query_embedding, top_k)
+            )
+        else:
+            cur.execute(
+                """
+                SELECT document_name, chunk_text, embedding <-> %s::vector AS distance
+                FROM document_chunks
+                WHERE user_id = %s
+                ORDER BY distance ASC
+                LIMIT %s
+                """,
+                (query_embedding, user_id, top_k)
+            )
 
         rows = cur.fetchall()
 
@@ -76,7 +89,7 @@ def search_similar_chunks(query_embedding, top_k=10):
             for r in rows
         ]
 
-        logger.info(f"Found {len(results)} similar chunks for query")
+        logger.info(f"Found {len(results)} similar chunks for query (user_id={user_id}, is_admin={is_admin})")
 
         cur.close()
         conn.close()
@@ -86,34 +99,68 @@ def search_similar_chunks(query_embedding, top_k=10):
     except Exception as e:
         logger.error(f"Failed to search similar chunks: {str(e)}")
         raise
-def get_all_documents():
+
+def get_all_documents(user_id, is_admin=False):
     try:
         conn = get_connection()
         cur = conn.cursor()
 
-        cur.execute(
-            """
-            SELECT document_name,
-                   COUNT(*) AS chunk_count,
-                   MAX(file_size) AS file_size,
-                   MAX(uploaded_at) AS uploaded_at
-            FROM document_chunks
-            GROUP BY document_name
-            ORDER BY uploaded_at DESC
-            """
-        )
+        if is_admin:
+            cur.execute(
+                """
+                SELECT dc.document_name,
+                       COUNT(*) AS chunk_count,
+                       MAX(dc.file_size) AS file_size,
+                       MAX(dc.uploaded_at) AS uploaded_at,
+                       dc.user_id,
+                       u.username
+                FROM document_chunks dc
+                LEFT JOIN users u ON dc.user_id = u.id
+                GROUP BY dc.document_name, dc.user_id, u.username
+                ORDER BY uploaded_at DESC
+                """
+            )
+        else:
+            cur.execute(
+                """
+                SELECT document_name,
+                       COUNT(*) AS chunk_count,
+                       MAX(file_size) AS file_size,
+                       MAX(uploaded_at) AS uploaded_at,
+                       user_id
+                FROM document_chunks
+                WHERE user_id = %s
+                GROUP BY document_name, user_id
+                ORDER BY uploaded_at DESC
+                """,
+                (user_id,)
+            )
 
         rows = cur.fetchall()
 
-        results = [
-            {
-                "document_name": r[0],
-                "chunk_count": r[1],
-                "file_size": r[2],
-                "uploaded_at": r[3].isoformat() if r[3] else None
-            }
-            for r in rows
-        ]
+        if is_admin:
+            results = [
+                {
+                    "document_name": r[0],
+                    "chunk_count": r[1],
+                    "file_size": r[2],
+                    "uploaded_at": r[3].isoformat() if r[3] else None,
+                    "user_id": r[4],
+                    "owner_username": r[5],
+                }
+                for r in rows
+            ]
+        else:
+            results = [
+                {
+                    "document_name": r[0],
+                    "chunk_count": r[1],
+                    "file_size": r[2],
+                    "uploaded_at": r[3].isoformat() if r[3] else None,
+                    "user_id": r[4],
+                }
+                for r in rows
+            ]
 
         logger.info(f"Fetched {len(results)} distinct documents")
 
@@ -126,21 +173,46 @@ def get_all_documents():
         logger.error(f"Failed to fetch documents: {str(e)}")
         raise
 
+def get_document_owner(document_name):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT DISTINCT user_id FROM document_chunks WHERE document_name = %s",
+            (document_name,)
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
 
-def delete_document(document_name):
+        if not rows:
+            return None
+        # Normally one owner per document_name; return the first
+        return rows[0][0]
+    except Exception as e:
+        logger.error(f"Failed to fetch owner for document '{document_name}': {str(e)}")
+        raise
+
+def delete_document(document_name, user_id, is_admin=False):
     try:
         conn = get_connection()
         cur = conn.cursor()
 
-        cur.execute(
-            "DELETE FROM document_chunks WHERE document_name = %s",
-            (document_name,)
-        )
+        if is_admin:
+            cur.execute(
+                "DELETE FROM document_chunks WHERE document_name = %s",
+                (document_name,)
+            )
+        else:
+            cur.execute(
+                "DELETE FROM document_chunks WHERE document_name = %s AND user_id = %s",
+                (document_name, user_id)
+            )
 
         deleted_count = cur.rowcount
         conn.commit()
 
-        logger.info(f"Deleted {deleted_count} chunks for document '{document_name}'")
+        logger.info(f"Deleted {deleted_count} chunks for document '{document_name}' (user_id={user_id}, is_admin={is_admin})")
 
         cur.close()
         conn.close()
@@ -155,7 +227,7 @@ def create_conversations(title="New Chat"):
     try:
         conn=get_connection()
         cur = conn.cursor()
-        cur.execute("INSERT INTO conversations (title) VALUES (%s) RETURNING id",(title,))
+        cur.execute("INSERT INTO conversations (title , user_id ) VALUES (%s , %s) RETURNING id",(title,))
 
         conversation_id = cur.fetchone()[0]
         conn.commit()
@@ -166,13 +238,13 @@ def create_conversations(title="New Chat"):
     except Exception as e:
         logger.error(f"Failed to create conversation: {str(e)}")
         raise
-def create_conversation(title="New chat"):
+def create_conversation(user_id, title="New chat"):
     try:
         conn = get_connection()
         cur = conn.cursor()
         cur.execute(
-            "INSERT INTO conversations (title) VALUES (%s) RETURNING id",
-            (title,)
+            "INSERT INTO conversations (title, user_id ) VALUES (%s , %s) RETURNING id",
+            (title, user_id )
         )
         conversation_id = cur.fetchone()[0]
         conn.commit()
@@ -185,16 +257,41 @@ def create_conversation(title="New chat"):
         raise
 
 
-def get_all_conversations():
+def get_all_conversations(user_id, is_admin = False):
     try:
         conn = get_connection()
         cur = conn.cursor()
-        cur.execute(
-            "SELECT id, title, created_at FROM conversations ORDER BY created_at DESC"
-        )
+
+        if is_admin:
+            cur.execute(
+                """
+                SELECT c.id, c.title, c.created_at, c.user_id, u.username
+                FROM conversations c
+                LEFT JOIN users u ON c.user_id = u.id
+                ORDER BY c.created_at DESC
+                """
+            )
+        else:
+            cur.execute(
+                """
+                SELECT c.id, c.title, c.created_at, c.user_id, u.username
+                FROM conversations c
+                LEFT JOIN users u ON c.user_id = u.id
+                WHERE c.user_id = %s
+                ORDER BY c.created_at DESC
+                """,
+                (user_id,)
+            )
+
         rows = cur.fetchall()
         results = [
-            {"id": r[0], "title": r[1], "created_at": r[2].isoformat() if r[2] else None}
+            {
+                "id": r[0],
+                "title": r[1],
+                "created_at": r[2].isoformat() if r[2] else None,
+                "user_id": r[3],
+                "owner_username": r[4],
+            }
             for r in rows
         ]
         cur.close()
@@ -253,3 +350,234 @@ def update_conversation_title(conversation_id, title):
     except Exception as e:
         logger.error(f"Failed to update conversation title: {str(e)}")
         raise
+
+def delete_conversation(conversation_id):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute("DELETE FROM messages WHERE conversation_id = %s", (conversation_id,))
+        cur.execute("DELETE FROM conversations WHERE id = %s",(conversation_id,))
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Failed to delete conversation {conversation_id}: {str(e)}")
+        raise
+
+def get_user_by_username(username):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            "SELECT id, username, hashed_password, role FROM users WHERE username = %s",
+            (username,)
+        )
+        row = cur.fetchone()
+
+        cur.close()
+        conn.close()
+
+        if row is None:
+            return None
+
+        return {"id": row[0], "username": row[1], "hashed_password": row[2], "role": row[3]}
+    except Exception as e:
+        logger.error(f"Failed to fetch user '{username}': {str(e)}")
+        raise
+def create_user(username, hashed_password, role="user"):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            "INSERT INTO users (username, hashed_password, role) VALUES (%s, %s, %s) RETURNING id",
+            (username, hashed_password, role)
+        )
+        user_id = cur.fetchone()[0]
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        logger.info(f"Created user '{username}' with role '{role}'")
+        return user_id
+    except Exception as e:
+        logger.error(f"Failed to create user '{username}': {str(e)}")
+        raise
+
+def get_conversation(conversation_id):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id, title, user_id FROM conversations WHERE id = %s",
+            (conversation_id,)
+        )
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+
+        if row is None:
+            return None
+
+        return {"id": row[0], "title": row[1], "user_id": row[2]}
+    except Exception as e:
+        logger.error(f"Failed to fetch conversation {conversation_id}: {str(e)}")
+def set_user_online(user_id):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        UPDATE users
+        SET is_online = TRUE,
+            last_login = NOW()
+        WHERE id = %s
+        """,
+        (user_id,)
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def set_user_offline(user_id):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute(
+        """
+        UPDATE users
+        SET is_online = FALSE
+        WHERE id = %s
+        """,
+        (user_id,)
+    )
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+def get_online_users():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT username,
+               role,
+               is_online,
+               last_login
+        FROM users
+        ORDER BY username
+    """)
+
+    rows = cur.fetchall()
+
+    cur.close()
+    conn.close()
+
+    return [
+        {
+            "username": r[0],
+            "role": r[1],
+            "is_online": r[2],
+            "last_login": r[3].isoformat() if r[3] else None
+        }
+        for r in rows
+    ]
+
+def log_activity(user_id, username, action, details=None):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO activity_log (user_id, username, action, details) VALUES (%s, %s, %s, %s)",
+            (user_id, username, action, details)
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+    except Exception as e:
+        logger.error(f"Failed to log activity for '{username}': {str(e)}")
+
+def get_activity_log(limit=100):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT username, action, details, created_at FROM activity_log ORDER BY created_at DESC LIMIT %s",
+            (limit,)
+        )
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        return [
+            {"username": r[0], "action": r[1], "details": r[2], "created_at": r[3].isoformat() if r[3] else None}
+            for r in rows
+        ]
+    except Exception as e:
+        logger.error(f"Failed to fetch activity log: {str(e)}")
+        raise
+
+def get_widget_configuration():
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            primary_color,
+            bot_name,
+            welcome_message,
+            button_position,
+            widget_size,
+            avatar_url
+        FROM widget_configuration
+        WHERE id = 1
+    """)
+
+    row = cur.fetchone()
+
+    cur.close()
+    conn.close()
+
+    if not row:
+        return None
+
+    return {
+        "primaryColor": row[0],
+        "botName": row[1],
+        "welcomeMessage": row[2],
+        "buttonPosition": row[3],
+        "widgetSize": row[4],
+        "avatarUrl": row[5]
+    }
+
+def update_widget_configuration(config):
+    conn = get_connection()
+    cur = conn.cursor()
+
+    cur.execute("""
+        UPDATE widget_configuration
+        SET
+            primary_color=%s,
+            bot_name=%s,
+            welcome_message=%s,
+            button_position=%s,
+            widget_size=%s,
+            avatar_url=%s
+        WHERE id=1
+    """,
+    (
+        config["primaryColor"],
+        config["botName"],
+        config["welcomeMessage"],
+        config["buttonPosition"],
+        config["widgetSize"],
+        config["avatarUrl"]
+    ))
+
+    conn.commit()
+
+    cur.close()
+    conn.close()
