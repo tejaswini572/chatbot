@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException
 from services.db import get_all_documents, delete_document, get_document_owner,log_activity
-from services.auth import get_current_user
+from services.auth import get_current_user , require_permission
 from logger_config import get_logger
 
 router = APIRouter()
 logger = get_logger(__name__)
 
 @router.get("/documents")
-async def list_documents(current_user: dict = Depends(get_current_user)):
+async def list_documents(
+    current_user: dict = Depends(require_permission("documents"))
+):
     try:
         is_admin = current_user["role"] == "admin"
         documents = get_all_documents(current_user["id"], is_admin)
@@ -17,7 +19,8 @@ async def list_documents(current_user: dict = Depends(get_current_user)):
         return {"error": str(e)}
 
 @router.delete("/documents/{document_name}")
-async def remove_document(document_name: str, current_user: dict = Depends(get_current_user)):
+async def remove_document(document_name: str, current_user: dict = Depends(require_permission("documents"))
+):
     try:
         owner_id = get_document_owner(document_name)
 

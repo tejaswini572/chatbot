@@ -4,7 +4,7 @@ import remarkGfm from "remark-gfm";
 
 const API_BASE = "http://localhost:8000";
 
-function ChatWindow({ closeWidget, config , mode}) {
+function ChatWindow({ closeWidget, config , mode, sessionId}) {
 
     const [message, setMessage] = useState("");
 
@@ -38,7 +38,8 @@ function ChatWindow({ closeWidget, config , mode}) {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    message: userMessage
+                    message: userMessage,
+                    session_id : sessionId
                 })
             }
         );
@@ -74,10 +75,12 @@ function ChatWindow({ closeWidget, config , mode}) {
         if (message.trim() === "") {
             return;
         }
-        if( mode === "general" ){
+        if( mode === "standalone"){
             await sendGeneralMessage();
             return;
         }
+        console.log("CHAT WINDOW MODE:", mode);
+console.log("CHAT WINDOW SESSION:", sessionId);
 
         let currentConversationId = conversationId;
 

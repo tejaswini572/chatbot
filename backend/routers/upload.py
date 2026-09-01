@@ -4,13 +4,14 @@ from services.chunking import chunk_text
 from services.embedding import generate_embedding
 from logger_config import get_logger
 from services.db import store_chunks , log_activity
-from services.auth import get_current_user
+from services.auth import require_permission , get_current_user
 
 router = APIRouter()
 logger = get_logger(__name__)
 
 @router.post("/upload")
-async def upload(document: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+async def upload(document: UploadFile = File(...), current_user: dict = Depends(require_permission("documents"))
+):
     try:
         logger.info(f"Received file: {document.filename}")
 

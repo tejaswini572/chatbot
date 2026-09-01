@@ -3,12 +3,14 @@ import FloatingButton from "./FloatingButton";
 import WidgetHome from "./WidgetHome";
 import ChatWindow from "./ChatWindow";
 import "./Widget.css";
+import { getOrCreateSessionId } from "./session"
 
 function Widget({ config: previewConfig, mode ="document" }) {
 
     const [isOpen, setIsOpen] = useState(false);
     const [isChatStarted, setIsChatStarted] = useState(false);
-
+    const [sessionId, setSessionId] = useState(null);
+console.log("WIDGET MODE:", mode);
         const [config, setConfig] = useState(previewConfig || {
         primaryColor: "#46d8e5",
         botName: "AI Assistant",
@@ -16,6 +18,7 @@ function Widget({ config: previewConfig, mode ="document" }) {
         buttonPosition: "right",
         widgetSize: "medium",
         avatarUrl: ""
+        
     });
 
 
@@ -40,6 +43,28 @@ function Widget({ config: previewConfig, mode ="document" }) {
             })
             .catch((err) => console.error(err));
     }, [previewConfig]);
+
+    
+useEffect(() => {
+    console.log("MODE RECEIVED:", mode);
+
+    if (mode === "standalone") {
+        console.log("STANDALONE MODE DETECTED");
+
+        const id = getOrCreateSessionId();
+
+        console.log("GENERATED SESSION ID:", id);
+
+        setSessionId(id);
+    }
+}, [mode]);
+
+useEffect(() => {
+    if (sessionId) {
+        console.log("Standalone Session ID:", sessionId);
+    }
+}, [sessionId]);
+
 
     function openWidget() {
         setIsOpen(true);
@@ -75,6 +100,7 @@ function Widget({ config: previewConfig, mode ="document" }) {
                     closeWidget={closeWidget}
                     config={config}
                     mode={mode}
+                    sessionId ={sessionId}
                 />
             )}
         </>

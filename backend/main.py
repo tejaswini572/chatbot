@@ -10,6 +10,7 @@ from routers import conversations
 from services import auth
 from routers.widget import router as widget_router
 from routers import widget_chat
+from routers import widget_history
 
 from routers import admin
 
@@ -21,7 +22,9 @@ app.add_middleware(
         "http://localhost:3000",       # Main React dev server
         "http://localhost:8000",       # Backend-served pages
         "http://127.0.0.1:5500",      # VS Code Live Server
-        "http://localhost:5500",       # VS Code Live Server (alternate)
+        "http://localhost:5500",
+             "http://127.0.0.1:5501",
+    "http://localhost:5501",
         "null",                        # file:// origin
     ],
     allow_credentials=True,
@@ -37,6 +40,7 @@ app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(widget_router)
 app.include_router(widget_chat.router)
+app.include_router(widget_history.router)
 
 # Path to React build
 frontend_build = Path("../frontend/build").resolve()

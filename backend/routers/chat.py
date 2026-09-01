@@ -9,7 +9,7 @@ from services.db import (
     get_conversation,
 )
 from services.llm import generate_answer
-from services.auth import get_current_user
+from services.auth import require_permission
 from logger_config import get_logger
 
 router = APIRouter()
@@ -20,7 +20,8 @@ class ChatRequest(BaseModel):
     conversation_id: int
 
 @router.post("/chat")
-async def chat(request: ChatRequest, current_user: dict = Depends(get_current_user)):
+async def chat(request: ChatRequest, current_user: dict = Depends(require_permission("chatbot"))
+):
     try:
         query = request.query.strip()
         conversation_id = request.conversation_id
@@ -60,7 +61,7 @@ async def chat(request: ChatRequest, current_user: dict = Depends(get_current_us
         answer = answer.replace("<br />", "\n")
         sources = list({chunk["document_name"] for chunk in chunks})
 
-        save_message(conversation_id, "bot", answer)
+        save_message(conversation_id, "bot", answer,sources)
 
         return {"answer": answer, "sources": sources}
     except HTTPException:

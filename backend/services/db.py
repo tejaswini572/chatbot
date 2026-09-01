@@ -302,37 +302,65 @@ def get_all_conversations(user_id, is_admin = False):
         raise
 
 
-def save_message(conversation_id, role, text):
+def save_message(conversation_id, role, text, sources=None):
     try:
         conn = get_connection()
         cur = conn.cursor()
+
         cur.execute(
-            "INSERT INTO messages (conversation_id, role, text) VALUES (%s, %s, %s)",
-            (conversation_id, role, text)
+            """
+            INSERT INTO messages
+            (conversation_id, role, text, sources)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (conversation_id, role, text, sources)
         )
+
         conn.commit()
         cur.close()
         conn.close()
-    except Exception as e:
-        logger.error(f"Failed to save message: {str(e)}")
-        raise
 
+    except Exception as e:
+        logger.error(
+            f"Failed to save message: {str(e)}"
+        )
+        raise
 
 def get_messages_for_conversation(conversation_id):
     try:
         conn = get_connection()
         cur = conn.cursor()
+
         cur.execute(
-            "SELECT role, text FROM messages WHERE conversation_id = %s ORDER BY id ASC",
+            """
+            SELECT role, text, sources
+            FROM messages
+            WHERE conversation_id = %s
+            ORDER BY id ASC
+            """,
             (conversation_id,)
         )
+
         rows = cur.fetchall()
-        results = [{"role": r[0], "text": r[1]} for r in rows]
+
+        results = [
+            {
+                "role": r[0],
+                "text": r[1],
+                "sources": r[2] or []
+            }
+            for r in rows
+        ]
+
         cur.close()
         conn.close()
+
         return results
+
     except Exception as e:
-        logger.error(f"Failed to fetch messages for conversation {conversation_id}: {str(e)}")
+        logger.error(
+            f"Failed to fetch messages for conversation {conversation_id}: {str(e)}"
+        )
         raise
 
 
@@ -370,9 +398,20 @@ def get_user_by_username(username):
         cur = conn.cursor()
 
         cur.execute(
-            "SELECT id, username, hashed_password, role FROM users WHERE username = %s",
+            """
+            SELECT
+                id,
+                username,
+                hashed_password,
+                role,
+                is_blocked,
+                role_id
+            FROM users
+            WHERE username = %s
+            """,
             (username,)
         )
+
         row = cur.fetchone()
 
         cur.close()
@@ -381,9 +420,19 @@ def get_user_by_username(username):
         if row is None:
             return None
 
-        return {"id": row[0], "username": row[1], "hashed_password": row[2], "role": row[3]}
+        return {
+            "id": row[0],
+            "username": row[1],
+            "hashed_password": row[2],
+            "role": row[3],
+            "is_blocked": row[4],
+            "role_id": row[5]
+        }
+
     except Exception as e:
-        logger.error(f"Failed to fetch user '{username}': {str(e)}")
+        logger.error(
+            f"Failed to fetch user '{username}': {str(e)}"
+        )
         raise
 def create_user(username, hashed_password, role="user"):
     try:
@@ -487,6 +536,133 @@ def get_online_users():
         for r in rows
     ]
 
+def get_all_users():
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT
+                id,
+                username,
+                role,
+                role_id,
+                is_online,
+                last_login,
+                is_blocked
+            FROM users
+            ORDER BY username
+        """)
+
+        rows = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+        return [
+            {
+                "id": r[0],
+                "username": r[1],
+                "role": r[2],
+                "role_id": r[3],
+                "is_online": r[4],
+                "last_login": r[5].isoformat() if r[5] else None,
+                "is_blocked": r[6]
+            }
+            for r in rows
+        ]
+
+    except Exception as e:
+        logger.error(f"Failed to fetch users: {str(e)}")
+        raise
+def update_user_role(user_id, role_id):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT name
+            FROM roles
+            WHERE id = %s
+            """,
+            (role_id,)
+        )
+
+        role_row = cur.fetchone()
+
+        if not role_row:
+            cur.close()
+            conn.close()
+            return False
+
+        role_name = role_row[0]
+
+        cur.execute(
+            """
+            UPDATE users
+            SET role_id = %s,
+                role = %s
+            WHERE id = %s
+            """,
+            (role_id, role_name, user_id)
+        )
+
+        if cur.rowcount == 0:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return False
+
+        conn.commit()
+
+        cur.close()
+        conn.close()
+
+        return True
+
+    except Exception as e:
+        logger.error(
+            f"Failed to update role for user_id={user_id}: {str(e)}"
+        )
+        raise
+def set_user_blocked(user_id, blocked):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            UPDATE users
+            SET is_blocked = %s
+            WHERE id = %s
+            """,
+            (blocked, user_id)
+        )
+
+        if cur.rowcount == 0:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return False
+
+        conn.commit()
+
+        cur.close()
+        conn.close()
+
+        logger.info(
+            f"User_id={user_id} blocked={blocked}"
+        )
+
+        return True
+
+    except Exception as e:
+        logger.error(
+            f"Failed to update block status for user_id={user_id}: {str(e)}"
+        )
+        raise
+
 def log_activity(user_id, username, action, details=None):
     try:
         conn = get_connection()
@@ -581,3 +757,456 @@ def update_widget_configuration(config):
 
     cur.close()
     conn.close()
+
+def get_all_roles():
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute("""
+            SELECT id, name
+            FROM roles
+            ORDER BY name
+        """)
+
+        rows = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+        return [
+            {
+                "id": r[0],
+                "name": r[1]
+            }
+            for r in rows
+        ]
+
+    except Exception as e:
+        logger.error(f"Failed to fetch roles: {str(e)}")
+        raise
+
+
+def get_role_by_id(role_id):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT id, name
+            FROM roles
+            WHERE id = %s
+            """,
+            (role_id,)
+        )
+
+        row = cur.fetchone()
+
+        cur.close()
+        conn.close()
+
+        if not row:
+            return None
+
+        return {
+            "id": row[0],
+            "name": row[1]
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to fetch role {role_id}: {str(e)}")
+        raise
+
+
+def get_permissions_for_role(role_id):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT p.name
+            FROM permissions p
+            JOIN role_permissions rp
+                ON rp.permission_id = p.id
+            WHERE rp.role_id = %s
+            ORDER BY p.name
+            """,
+            (role_id,)
+        )
+
+        rows = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+        return [r[0] for r in rows]
+
+    except Exception as e:
+        logger.error(
+            f"Failed to fetch permissions for role_id={role_id}: {str(e)}"
+        )
+        raise
+
+
+def get_user_permissions(user_id):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT p.name
+            FROM user_permissions up
+            JOIN permissions p
+                ON p.id = up.permission_id
+            WHERE up.user_id = %s
+            ORDER BY p.name
+            """,
+            (user_id,)
+        )
+
+        rows = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+        return [r[0] for r in rows]
+
+    except Exception as e:
+        logger.error(
+            f"Failed to fetch permissions for user_id={user_id}: {str(e)}"
+        )
+        raise
+def update_user_password(user_id, hashed_password):
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            UPDATE users
+            SET hashed_password = %s
+            WHERE id = %s
+            """,
+            (hashed_password, user_id)
+        )
+
+        if cur.rowcount == 0:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return False
+
+        conn.commit()
+
+        cur.close()
+        conn.close()
+
+        logger.info(
+            f"Password reset for user_id={user_id}"
+        )
+
+        return True
+
+    except Exception as e:
+        logger.error(
+            f"Failed to reset password for user_id={user_id}: {str(e)}"
+        )
+        raise
+def delete_user(user_id):
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # First check whether the user exists
+        cur.execute(
+            """
+            SELECT username
+            FROM users
+            WHERE id = %s
+            """,
+            (user_id,)
+        )
+
+        user = cur.fetchone()
+
+        if not user:
+            cur.close()
+            conn.close()
+            return False
+
+        # Delete messages belonging to the user's conversations
+        cur.execute(
+            """
+            DELETE FROM messages
+            WHERE conversation_id IN (
+                SELECT id
+                FROM conversations
+                WHERE user_id = %s
+            )
+            """,
+            (user_id,)
+        )
+
+        # Delete conversations
+        cur.execute(
+            """
+            DELETE FROM conversations
+            WHERE user_id = %s
+            """,
+            (user_id,)
+        )
+
+        # Delete uploaded document chunks
+        cur.execute(
+            """
+            DELETE FROM document_chunks
+            WHERE user_id = %s
+            """,
+            (user_id,)
+        )
+
+        # Delete activity logs for that user
+        cur.execute(
+            """
+            DELETE FROM activity_log
+            WHERE user_id = %s
+            """,
+            (user_id,)
+        )
+
+        # Finally delete the user
+        cur.execute(
+            """
+            DELETE FROM users
+            WHERE id = %s
+            """,
+            (user_id,)
+        )
+
+        conn.commit()
+
+        cur.close()
+        conn.close()
+
+        logger.info(
+            f"Deleted user_id={user_id}"
+        )
+
+        return True
+
+    except Exception as e:
+
+        if conn:
+            conn.rollback()
+
+        logger.error(
+            f"Failed to delete user_id={user_id}: {str(e)}"
+        )
+
+        raise
+
+    finally:
+        if cur and not cur.closed:
+            cur.close()
+
+        if conn and not conn.closed:
+            conn.close()
+
+def get_all_permissions():
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT id, name
+            FROM permissions
+            ORDER BY name
+            """
+        )
+
+        rows = cur.fetchall()
+
+        cur.close()
+        conn.close()
+
+        return [
+            {
+                "id": r[0],
+                "name": r[1]
+            }
+            for r in rows
+        ]
+
+    except Exception as e:
+        logger.error(
+            f"Failed to fetch all permissions: {str(e)}"
+        )
+        raise
+def update_user_permissions(user_id, permission_ids):
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            """
+            SELECT id
+            FROM users
+            WHERE id = %s
+            """,
+            (user_id,)
+        )
+
+        if not cur.fetchone():
+            return False
+
+        cur.execute(
+            """
+            DELETE FROM user_permissions
+            WHERE user_id = %s
+            """,
+            (user_id,)
+        )
+
+        for permission_id in permission_ids:
+            cur.execute(
+                """
+                INSERT INTO user_permissions
+                    (user_id, permission_id)
+                VALUES (%s, %s)
+                ON CONFLICT DO NOTHING
+                """,
+                (user_id, permission_id)
+            )
+
+        conn.commit()
+
+        return True
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+
+        logger.error(
+            f"Failed to update permissions for user_id={user_id}: {str(e)}"
+        )
+        raise
+
+    finally:
+        if cur:
+            cur.close()
+
+        if conn:
+            conn.close()
+def create_admin_user(username, hashed_password, role_id, permission_ids):
+    conn = None
+    cur = None
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        # Check if username already exists
+        cur.execute(
+            """
+            SELECT id
+            FROM users
+            WHERE username = %s
+            """,
+            (username,)
+        )
+
+        if cur.fetchone():
+            return None
+
+        # Get role name from role_id
+        cur.execute(
+            """
+            SELECT name
+            FROM roles
+            WHERE id = %s
+            """,
+            (role_id,)
+        )
+
+        role = cur.fetchone()
+
+        if not role:
+            return False
+
+        role_name = role[0]
+
+        # Create user
+        cur.execute(
+            """
+            INSERT INTO users (
+                username,
+                hashed_password,
+                role,
+                role_id,
+                is_online,
+                is_blocked
+            )
+            VALUES (%s, %s, %s, %s, FALSE, FALSE)
+            RETURNING id
+            """,
+            (
+                username,
+                hashed_password,
+                role_name,
+                role_id
+            )
+        )
+
+        user_id = cur.fetchone()[0]
+
+        # Add selected permissions
+        for permission_id in permission_ids:
+            cur.execute(
+                """
+                INSERT INTO user_permissions (
+                    user_id,
+                    permission_id
+                )
+                VALUES (%s, %s)
+                ON CONFLICT DO NOTHING
+                """,
+                (
+                    user_id,
+                    permission_id
+                )
+            )
+
+        conn.commit()
+
+        logger.info(
+            f"Admin created user_id={user_id}"
+        )
+
+        return user_id
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+
+        logger.error(
+            f"Failed to create admin user: {str(e)}"
+        )
+
+        raise
+
+    finally:
+        if cur:
+            cur.close()
+
+        if conn:
+            conn.close()

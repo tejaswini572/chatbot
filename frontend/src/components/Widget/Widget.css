@@ -199,19 +199,17 @@
     box-shadow: 0 6px 18px rgba(16,163,127,0.35);
 }
 
-.floating-button{
+.floating-button {
     position: fixed;
 
+    background: transparent;
     border: none;
-    border-radius: 0%;
+    box-shadow: none;
 
-    color: white;
-    font-size: 28px;
+    padding: 0;
     cursor: pointer;
 
-    box-shadow: 0 6px 20px rgba(0,0,0,.4);
-
-    transition: all 0.2s ease;
+    line-height: 1;
 }
 .widget-config {
     padding: 40px;
@@ -380,4 +378,211 @@
 .bot pre code {
     background: none;
     padding: 0;
+}
+/* ============================================================
+   WIDGET HISTORY
+   ============================================================ */
+
+.widget-history-layout {
+    display: grid;
+    grid-template-columns:  minmax(240px, 28%) 1fr;
+    gap: 24px;
+    width: 100%;
+    align-items: start;
+}
+
+
+/* ============================================================
+   SESSION LIST
+   ============================================================ */
+
+.widget-session-list {
+    background: #1E1F24;
+    border: 1px solid #2A2C33;
+    border-radius: 12px;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.widget-session-list h3 {
+    margin: 0 0 18px 0;
+    color: white;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+
+/* ============================================================
+   SESSION TABLE
+   ============================================================ */
+
+.widget-session-table {
+    width: 100%;
+}
+
+.widget-session-row {
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.widget-session-row:hover {
+    background: rgba(32, 211, 179, 0.08);
+}
+
+.widget-session-row.active {
+    background: rgba(32, 211, 179, 0.15);
+}
+
+.widget-session-row td {
+    padding: 14px 12px;
+}
+
+.widget-session-row td:first-child {
+    width: 50px;
+    color: #8f96a3;
+}
+
+.widget-session-row td:last-child {
+    color: #e7e9ed;
+    font-family: monospace;
+    font-size: 13px;
+}
+
+
+/* ============================================================
+   EMPTY SESSION LIST
+   ============================================================ */
+
+.widget-no-sessions {
+    color: #9ca3af;
+    padding: 20px 5px;
+    text-align: center;
+}
+
+
+/* ============================================================
+   SESSION DETAILS
+   ============================================================ */
+
+.widget-session-details {
+    background: #1E1F24;
+    border: 1px solid #2A2C33;
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+
+/* ============================================================
+   SESSION ID
+   ============================================================ */
+
+.session-id-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    padding: 14px 18px;
+    margin-bottom: 10px;
+
+    background: #17181D;
+    border: 1px solid #2A2C33;
+    border-radius: 8px;
+
+    color: #c9cdd5;
+}
+
+.session-id-display strong {
+    color: #20D3B3;
+}
+
+.session-id-display span {
+    font-family: monospace;
+    font-size: 13px;
+    word-break: break-all;
+}
+
+
+/* ============================================================
+   LOADING
+   ============================================================ */
+
+.widget-session-loading {
+    flex: 1;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    color: #9ca3af;
+    font-size: 15px;
+}
+
+
+/* ============================================================
+   NO MESSAGES
+   ============================================================ */
+
+.widget-no-messages {
+    color: #9ca3af;
+    text-align: center;
+    padding: 30px;
+}
+
+.widget-session-search {
+    width: 100%;
+    box-sizing: border-box;
+
+    background: #25262d;
+    border: 1px solid #3a3c45;
+    color: white;
+
+    border-radius: 8px;
+    padding: 11px 14px;
+
+    margin: 10px 0 15px;
+
+    font-size: 14px;
+    outline: none;
+
+    transition: 0.2s;
+}
+
+.widget-session-search::placeholder {
+    color: #8f95a3;
+}
+
+.widget-session-search:focus {
+    border-color: #25d0b4;
+    box-shadow: 0 0 0 3px rgba(37, 208, 180, 0.12);
+}
+.widget-session-row {
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.widget-session-row:hover {
+    background: rgba(37, 208, 180, 0.08);
+}
+
+.widget-session-row.active {
+    background: rgba(37, 208, 180, 0.15);
+}
+.widget-session-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+.widget-session-table th:first-child,
+.widget-session-table td:first-child {
+  width: 45px;
+}
+
+.widget-session-table th:last-child,
+.widget-session-table td:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }

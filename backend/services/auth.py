@@ -9,6 +9,7 @@ import jwt
 import os
 from datetime import datetime, timedelta , timezone
 from services.db import set_user_online , set_user_offline ,log_activity
+from services.db import get_user_permissions
 
 
 security = HTTPBearer()
@@ -76,11 +77,28 @@ class SignupRequest(BaseModel):
 async def login(credentials : LoginRequest):
     try:
         user= get_user_by_username(credentials.username)
+        if user is None:
+            logger.info(
+                f"Failed login attempt for username: {credentials.username}"
+            )
+            return {"error": "Invalid username or password"}
 
-        if user is None or not verify_password(credentials.password , user["hashed_password"]):
-            logger.info(f"Failed login attempt for username: {credentials.username}")
-            return {"error":" Invalid username or password"}
+        if user["is_blocked"]:
+            logger.warning(
+                f"Blocked user attempted login: {credentials.username}"
+    )
+            return {"error": "Your account has been blocked by an administrator"}
 
+        if not verify_password(
+            credentials.password,
+            user["hashed_password"]
+):
+            logger.info(
+                f"Failed login attempt for username: {credentials.username}"
+    )
+            return {"error": "Invalid username or password"}
+
+        
         token = create_access_token(user["id"] , user ["username"] , user["role"])
         set_user_online(user["id"])
         log_activity(user["id"] ,  user["username"],"login")
@@ -125,3 +143,29 @@ async def logout(current_user: dict = Depends(get_current_user)):
     set_user_offline(current_user["id"])
     log_activity(current_user["id"] , current_user["username"],"logout")
     return {"message": "Logged out successfully"}
+def require_permission(permission_name: str):
+
+    def permission_checker(
+        current_user: dict = Depends(get_current_user)
+    ):
+        permissions = get_user_permissions(
+            int(current_user["id"])
+        )
+
+        if permission_name not in permissions:
+            raise HTTPException(
+                status_code=403,
+                detail="Permission denied"
+            )
+
+        return current_user
+
+    return permission_checker
+@router.get("/permissions")
+async def my_permissions(
+    current_user: dict = Depends(get_current_user)
+):
+    return {
+        "permissions": get_user_permissions(current_user["id"])
+    }
+    

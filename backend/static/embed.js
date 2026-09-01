@@ -13,7 +13,7 @@
 
     css.rel = "stylesheet";
 
-    css.href = "http://localhost:8000/static/css/main.22cb9c06.css";
+    css.href = "http://localhost:8000/static/css/main.744a500a.css";
 
     document.head.appendChild(css);
 
@@ -21,7 +21,7 @@
     // Load widget JavaScript
     const script = document.createElement("script");
 
-    script.src = "http://localhost:8000/static/js/main.2c8f2f8c.js";
+    script.src = "http://localhost:8000/static/js/main.fd8fb220.js";
 
     script.async = true;
 
