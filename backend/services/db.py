@@ -1210,3 +1210,83 @@ def create_admin_user(username, hashed_password, role_id, permission_ids):
 
         if conn:
             conn.close()
+
+def get_dashboard_stats():
+    conn = None
+    cur= None
+    try:
+        conn= get_connection()
+        cur=conn.cursor()
+
+        cur.execute("""
+        select COUNT(*) FROM users """)
+        total_users=cur.fetchone()[0]
+       
+
+        cur.execute("""
+        select COUNT(*) from users WHERE is_online = TRUE """ )
+        online_users=cur.fetchone()[0]
+        
+        cur.execute("""
+        select count(*) from users where is_blocked = TRUE """)
+        blocked_users=cur.fetchone()[0]
+
+        cur.execute("""
+        select count (*)  from conversations """)
+        total_conversations =cur.fetchone()[0];
+
+        cur.execute("""
+        select count(*) from conversations where created_at::date = CURRENT_DATE"""
+        )
+        conversations_today = cur.fetchone()[0]
+
+        cur.execute("""
+            SELECT COUNT(*)
+            FROM messages
+        """)
+        total_messages = cur.fetchone()[0]
+
+        cur.execute("""
+            SELECT COUNT(*)
+            FROM messages
+            WHERE created_at::date = CURRENT_DATE
+        """)
+        messages_today = cur.fetchone()[0]
+
+        cur.execute("""
+            SELECT COUNT(DISTINCT document_name)
+            FROM document_chunks
+        """)
+        total_documents = cur.fetchone()[0]
+
+        cur.execute("""
+            SELECT COUNT(*)
+            FROM document_chunks
+        """)
+        total_document_chunks = cur.fetchone()[0]
+
+        return {
+            "total_users": total_users,
+            "online_users": online_users,
+            "blocked_users": blocked_users,
+            "total_conversations": total_conversations,
+            "conversations_today": conversations_today,
+            "total_messages": total_messages,
+            "messages_today": messages_today,
+            "total_documents": total_documents,
+            "total_document_chunks": total_document_chunks
+        }
+
+    except Exception as e:
+        logger.error(
+            f"Failed to fetch dashboard stats: {str(e)}"
+        )
+        raise
+
+    finally:
+        if cur:
+            cur.close()
+
+        if conn:
+            conn.close()
+

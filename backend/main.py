@@ -11,6 +11,8 @@ from services import auth
 from routers.widget import router as widget_router
 from routers import widget_chat
 from routers import widget_history
+from routers import dashboard
+
 
 from routers import admin
 
@@ -41,6 +43,7 @@ app.include_router(admin.router)
 app.include_router(widget_router)
 app.include_router(widget_chat.router)
 app.include_router(widget_history.router)
+app.include_router(dashboard.router)
 
 # Path to React build
 frontend_build = Path("../frontend/build").resolve()

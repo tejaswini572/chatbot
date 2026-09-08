@@ -1,6 +1,10 @@
+import os
 from motor.motor_asyncio import AsyncIOMotorClient
 
-MONGO_URL = "mongodb://localhost:27017"
+MONGO_URL = os.getenv(
+    "MONGO_URL",
+    "mongodb://localhost:27017"
+)
 
 client = AsyncIOMotorClient(MONGO_URL)
 
@@ -21,3 +25,16 @@ async def test_connection():
 
 if __name__ == "__main__":
     asyncio.run(test_connection())
+
+async def get_widget_conversation_count():
+    try:
+        count = await conversations_collection.count_documents({})
+
+        return count
+
+    except Exception as e:
+        print(
+            "Failed to fetch widget conversation count:",
+            e
+        )
+        raise
