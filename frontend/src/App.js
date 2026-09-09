@@ -70,7 +70,11 @@ function App() {
     const stored = localStorage.getItem('authUser');
     return stored ? JSON.parse(stored) : null;
   });
+  // Add near your other useState declarations
 
+const [dashboardStats, setDashboardStats] = useState(null);
+const [dashboardLoading, setDashboardLoading] = useState(false);
+const [dashboardError, setDashboardError] = useState('');
   const isAdmin = currentUser?.role === 'admin';
 
   // ============================================================
@@ -215,7 +219,43 @@ function App() {
         );
       }
     };
+// ============================================================
+// DASHBOARD
+// ============================================================
 
+const fetchDashboardStats = async () => {
+  try {
+    setDashboardLoading(true);
+    setDashboardError('');
+
+    const response = await authFetch(
+      `${API_BASE}/dashboard/stats`
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        'Failed to fetch dashboard statistics'
+      );
+    }
+
+    const data = await response.json();
+
+    setDashboardStats(data);
+
+  } catch (err) {
+    console.error(
+      'Failed to fetch dashboard statistics:',
+      err
+    );
+
+    setDashboardError(
+      'Unable to load dashboard data.'
+    );
+
+  } finally {
+    setDashboardLoading(false);
+  }
+};
   // ============================================================
   // DOCUMENTS
   // ============================================================
@@ -964,90 +1004,43 @@ function App() {
   // ============================================================
   // LOAD DATA BASED ON PERMISSIONS
   // ============================================================
+useEffect(() => {
 
-  useEffect(() => {
+  if (
+    activeView === 'dashboard' &&
+    permissions.includes('dashboard')
+  ) {
+    fetchDashboardStats();
+  }
 
-    if (!authToken) {
-      return;
-    }
+  if (
+    activeView === 'users' &&
+    permissions.includes('users')
+  ) {
+    fetchOnlineUsers();
+    fetchRoles();
+    fetchAllPermissions();
+  }
 
-    if (
-      permissions.includes(
-        'documents'
-      )
-    ) {
-      fetchDocuments();
-    }
+  if (
+    activeView === 'activity' &&
+    permissions.includes('activity_logs')
+  ) {
+    fetchActivityLog();
+  }
 
-    if (
-      permissions.includes(
-        'chatbot'
-      )
-    ) {
-      loadConversations();
-    }
+  if (
+    activeView === 'widgetHistory' &&
+    permissions.includes('widget_history')
+  ) {
+    fetchWidgetSessions();
+  }
 
-    if (
-      permissions.includes(
-        'widget_history'
-      )
-    ) {
-      fetchWidgetSessions();
-    }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    permissions,
-    authToken
-  ]);
-
-  // ============================================================
-  // PAGE SPECIFIC DATA
-  // ============================================================
-
-  useEffect(() => {
-
-    if (
-      activeView === 'users' &&
-      permissions.includes(
-        'users'
-      )
-    ) {
-
-      fetchOnlineUsers();
-
-      fetchRoles();
-
-      fetchAllPermissions();
-    }
-
-    if (
-      activeView ===
-        'activity' &&
-      permissions.includes(
-        'activity_logs'
-      )
-    ) {
-
-      fetchActivityLog();
-    }
-
-    if (
-      activeView ===
-        'widgetHistory' &&
-      permissions.includes(
-        'widget_history'
-      )
-    ) {
-
-      fetchWidgetSessions();
-    }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    activeView,
-    permissions
-  ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [
+  activeView,
+  permissions
+]);
 
   // ============================================================
   // SWITCH TO FIRST ALLOWED PAGE
@@ -1060,57 +1053,44 @@ function App() {
     ) {
       return;
     }
+const allowedViews = [
 
-    const allowedViews = [
+  {
+    permission: 'dashboard',
+    view: 'dashboard'
+  },
 
-      {
-        permission:
-          'chatbot',
+  {
+    permission: 'chatbot',
+    view: 'chat'
+  },
 
-        view:
-          'chat'
-      },
+  {
+    permission: 'documents',
+    view: 'documents'
+  },
 
-      {
-        permission:
-          'documents',
+  {
+    permission: 'widget_configuration',
+    view: 'widgetConfig'
+  },
 
-        view:
-          'documents'
-      },
+  {
+    permission: 'widget_history',
+    view: 'widgetHistory'
+  },
 
-      {
-        permission:
-          'widget_configuration',
+  {
+    permission: 'users',
+    view: 'users'
+  },
 
-        view:
-          'widgetConfig'
-      },
+  {
+    permission: 'activity_logs',
+    view: 'activity'
+  }
 
-      {
-        permission:
-          'widget_history',
-
-        view:
-          'widgetHistory'
-      },
-
-      {
-        permission:
-          'users',
-
-        view:
-          'users'
-      },
-
-      {
-        permission:
-          'activity_logs',
-
-        view:
-          'activity'
-      }
-    ];
+];
 
     const currentAllowed =
       allowedViews.some(
@@ -1696,334 +1676,346 @@ function App() {
   // ============================================================
   // MAIN UI
   // ============================================================
+return (
 
-  return (
+  <div className="app-container">
 
-    <div className="app-container">
+    {/* =====================================================
+        SIDEBAR
+    ===================================================== */}
 
-      {/* =====================================================
-          SIDEBAR
-      ===================================================== */}
+    <div className="sidebar">
 
-      <div className="sidebar">
+      <div className="sidebar-scroll">
 
-        <div className="sidebar-scroll">
+        {hasPermission(
+          'chatbot'
+        ) && (
 
-          {hasPermission(
-            'chatbot'
-          ) && (
+          <button
+            className="new-chat-btn"
+            onClick={
+              handleNewChat
+            }
+          >
+            + New chat
+          </button>
 
-            <button
-              className="new-chat-btn"
+        )}
 
-              onClick={
-                handleNewChat
-              }
-            >
-              + New chat
-            </button>
-
-          )}
-
-          {hasPermission(
-            'chatbot'
-          ) && (
-
-            <div
-              className={`nav-item ${
-                activeView ===
-                'chat'
-                  ? 'active'
-                  : ''
-              }`}
-
-              onClick={() =>
-                setActiveView(
-                  'chat'
-                )
-              }
-            >
-              Chatbot
-            </div>
-
-          )}
-
-          {hasPermission(
-            'documents'
-          ) && (
-
-            <div
-              className={`nav-item ${
-                activeView ===
-                'documents'
-                  ? 'active'
-                  : ''
-              }`}
-
-              onClick={() =>
-                setActiveView(
-                  'documents'
-                )
-              }
-            >
-              Documents
-            </div>
-
-          )}
-
-          {hasPermission(
-            'widget_configuration'
-          ) && (
-
-            <div
-              className={`nav-item ${
-                activeView ===
-                'widgetConfig'
-                  ? 'active'
-                  : ''
-              }`}
-
-              onClick={() =>
-                setActiveView(
-                  'widgetConfig'
-                )
-              }
-            >
-              Widget Configuration
-            </div>
-
-          )}
-
-          {hasPermission(
-            'widget_history'
-          ) && (
-
-            <div
-              className={`nav-item ${
-                activeView ===
-                'widgetHistory'
-                  ? 'active'
-                  : ''
-              }`}
-
-              onClick={() =>
-                setActiveView(
-                  'widgetHistory'
-                )
-              }
-            >
-              Conversations
-            </div>
-
-          )}
-
-          {hasPermission(
-            'users'
-          ) && (
-
-            <div
-              className={`nav-item ${
-                activeView ===
-                'users'
-                  ? 'active'
-                  : ''
-              }`}
-
-              onClick={() =>
-                setActiveView(
-                  'users'
-                )
-              }
-            >
-              Users
-            </div>
-
-          )}
-
-          {hasPermission(
-            'activity_logs'
-          ) && (
-
-            <div
-              className={`nav-item ${
-                activeView ===
-                'activity'
-                  ? 'active'
-                  : ''
-              }`}
-
-              onClick={() =>
-                setActiveView(
-                  'activity'
-                )
-              }
-            >
-              Activity Logs
-            </div>
-
-          )}
-
-          {/* RECENT CHATS */}
-
-          {activeView ===
-            'chat' &&
-
-            hasPermission(
-              'chatbot'
-            ) && (
-
-            <>
-
-              <div className="section-label">
-                Recent chats
-              </div>
-
-              {chatHistory.map(
-                (c) => (
-
-                  <div
-                    key={
-                      c.id
-                    }
-
-                    className={`chat-history-item-row ${
-                      conversationId ===
-                        c.id
-                        ? 'active'
-                        : ''
-                    }`}
-                  >
-
-                    <span
-                      className="chat-history-title"
-
-                      onClick={() =>
-                        handleSelectConversation(
-                          c.id
-                        )
-                      }
-                    >
-
-                      {c.title}
-
-                      {isAdmin &&
-                      c.owner_username
-                        ? ` — ${c.owner_username}`
-                        : ''}
-
-                    </span>
-
-                    <button
-                      className="chat-history-delete-btn"
-
-                      title="Delete chat"
-
-                      onClick={(e) => {
-
-                        e.stopPropagation();
-
-                        handleDeleteConversation(
-                          c.id
-                        );
-                      }}
-                    >
-                      🗑
-                    </button>
-
-                  </div>
-
-                )
-              )}
-
-            </>
-
-          )}
-
-        </div>
-
-        {/* USER FOOTER */}
-
-        <div className="user-footer">
-
-          {showUserMenu && (
-
-            <div className="user-dropdown">
-
-              <div className="user-dropdown-item">
-                Profile
-              </div>
-
-              <div className="user-dropdown-item">
-                Settings
-              </div>
-
-              <div className="user-dropdown-item">
-                Help
-              </div>
-
-              <div
-                className="user-dropdown-item logout"
-
-                onClick={() =>
-                  handleLogout(
-                    false
-                  )
-                }
-              >
-                Log out
-              </div>
-
-            </div>
-
-          )}
+        {hasPermission(
+          'dashboard'
+        ) && (
 
           <div
-            className="user-row"
-
+            className={`nav-item ${
+              activeView ===
+              'dashboard'
+                ? 'active'
+                : ''
+            }`}
             onClick={() =>
-              setShowUserMenu(
-                prev =>
-                  !prev
+              setActiveView(
+                'dashboard'
               )
             }
           >
+            Dashboard
+          </div>
 
-            <div className="user-avatar">
+        )}
+
+        {hasPermission(
+          'chatbot'
+        ) && (
+
+          <div
+            className={`nav-item ${
+              activeView ===
+              'chat'
+                ? 'active'
+                : ''
+            }`}
+            onClick={() =>
+              setActiveView(
+                'chat'
+              )
+            }
+          >
+            Chatbot
+          </div>
+
+        )}
+
+        {hasPermission(
+          'documents'
+        ) && (
+
+          <div
+            className={`nav-item ${
+              activeView ===
+              'documents'
+                ? 'active'
+                : ''
+            }`}
+            onClick={() =>
+              setActiveView(
+                'documents'
+              )
+            }
+          >
+            Documents
+          </div>
+
+        )}
+
+        {hasPermission(
+          'widget_configuration'
+        ) && (
+
+          <div
+            className={`nav-item ${
+              activeView ===
+              'widgetConfig'
+                ? 'active'
+                : ''
+            }`}
+            onClick={() =>
+              setActiveView(
+                'widgetConfig'
+              )
+            }
+          >
+            Widget Configuration
+          </div>
+
+        )}
+
+        {hasPermission(
+          'widget_history'
+        ) && (
+
+          <div
+            className={`nav-item ${
+              activeView ===
+              'widgetHistory'
+                ? 'active'
+                : ''
+            }`}
+            onClick={() =>
+              setActiveView(
+                'widgetHistory'
+              )
+            }
+          >
+            Conversations
+          </div>
+
+        )}
+
+        {hasPermission(
+          'users'
+        ) && (
+
+          <div
+            className={`nav-item ${
+              activeView ===
+              'users'
+                ? 'active'
+                : ''
+            }`}
+            onClick={() =>
+              setActiveView(
+                'users'
+              )
+            }
+          >
+            Users
+          </div>
+
+        )}
+
+        {hasPermission(
+          'activity_logs'
+        ) && (
+
+          <div
+            className={`nav-item ${
+              activeView ===
+              'activity'
+                ? 'active'
+                : ''
+            }`}
+            onClick={() =>
+              setActiveView(
+                'activity'
+              )
+            }
+          >
+            Activity Logs
+          </div>
+
+        )}
+
+        {/* RECENT CHATS */}
+
+        {activeView ===
+          'chat' &&
+
+          hasPermission(
+            'chatbot'
+          ) && (
+
+          <>
+
+            <div className="section-label">
+              Recent chats
+            </div>
+
+            {chatHistory.map(
+              (c) => (
+
+                <div
+                  key={
+                    c.id
+                  }
+
+                  className={`chat-history-item-row ${
+                    conversationId ===
+                      c.id
+                      ? 'active'
+                      : ''
+                  }`}
+                >
+
+                  <span
+                    className="chat-history-title"
+
+                    onClick={() =>
+                      handleSelectConversation(
+                        c.id
+                      )
+                    }
+                  >
+
+                    {c.title}
+
+                    {isAdmin &&
+                    c.owner_username
+                      ? ` — ${c.owner_username}`
+                      : ''}
+
+                  </span>
+
+                  <button
+                    className="chat-history-delete-btn"
+
+                    title="Delete chat"
+
+                    onClick={(e) => {
+
+                      e.stopPropagation();
+
+                      handleDeleteConversation(
+                        c.id
+                      );
+                    }}
+                  >
+                    🗑
+                  </button>
+
+                </div>
+
+              )
+            )}
+
+          </>
+
+        )}
+
+      </div>
+
+      {/* USER FOOTER */}
+
+      <div className="user-footer">
+
+        {showUserMenu && (
+
+          <div className="user-dropdown">
+
+            <div className="user-dropdown-item">
+              Profile
+            </div>
+
+            <div className="user-dropdown-item">
+              Settings
+            </div>
+
+            <div className="user-dropdown-item">
+              Help
+            </div>
+
+            <div
+              className="user-dropdown-item logout"
+
+              onClick={() =>
+                handleLogout(
+                  false
+                )
+              }
+            >
+              Log out
+            </div>
+
+          </div>
+
+        )}
+
+        <div
+          className="user-row"
+
+          onClick={() =>
+            setShowUserMenu(
+              prev =>
+                !prev
+            )
+          }
+        >
+
+          <div className="user-avatar">
+
+            {currentUser
+              ?.username
+
+              ? currentUser
+                  .username
+                  .slice(
+                    0,
+                    2
+                  )
+                  .toUpperCase()
+
+              : '??'}
+
+          </div>
+
+          <div className="user-info-text">
+
+            <span className="user-name">
 
               {currentUser
-                ?.username
+                ?.username ||
+                'Unknown'}
 
-                ? currentUser
-                    .username
-                    .slice(
-                      0,
-                      2
-                    )
-                    .toUpperCase()
+            </span>
 
-                : '??'}
+            <span className="user-status">
 
-            </div>
+              {currentUser
+                ?.role ||
+                'User'}
 
-            <div className="user-info-text">
-
-              <span className="user-name">
-
-                {currentUser
-                  ?.username ||
-                  'Unknown'}
-
-              </span>
-
-              <span className="user-status">
-
-                {currentUser
-                  ?.role ||
-                  'User'}
-
-              </span>
-
-            </div>
+            </span>
 
           </div>
 
@@ -2031,1579 +2023,1831 @@ function App() {
 
       </div>
 
-      {/* =====================================================
-          CHAT
-      ===================================================== */}
+    </div>
 
-      {activeView ===
-        'chat' &&
 
-        hasPermission(
-          'chatbot'
-        ) && (
+    {/* =====================================================
+        DASHBOARD
+    ===================================================== */}
 
-        <div className="chat-main">
+    {activeView ===
+      'dashboard' &&
 
-          <div className="chat-header">
+      hasPermission(
+        'dashboard'
+      ) && (
 
-            AI Document Assistant
+      <div className="dashboard-page">
+
+        <div className="dashboard-header">
+
+          <div>
+
+            <h2>
+              Dashboard
+            </h2>
+
+            <p>
+              Live overview of users, conversations,
+              messages, documents and widget activity.
+            </p>
 
           </div>
 
-          <div className="chat-messages">
+          <button
+            className="dashboard-refresh-btn"
 
-            {messages.length ===
+            onClick={
+              fetchDashboardStats
+            }
+
+            disabled={
+              dashboardLoading
+            }
+          >
+
+            {dashboardLoading
+              ? 'Refreshing...'
+              : 'Refresh'}
+
+          </button>
+
+        </div>
+
+        {dashboardLoading &&
+        !dashboardStats
+          ? (
+
+            <div className="dashboard-state">
+              Loading dashboard...
+            </div>
+
+          )
+
+          : dashboardError &&
+            !dashboardStats
+            ? (
+
+              <div className="dashboard-state dashboard-error">
+                {dashboardError}
+              </div>
+
+            )
+
+            : dashboardStats
+              ? (
+
+                <>
+
+                  {/* MAIN KPI CARDS */}
+
+                  <div className="dashboard-kpi-grid">
+
+                    <div className="dashboard-card">
+
+                      <div className="dashboard-card-label">
+                        Total Users
+                      </div>
+
+                      <div className="dashboard-card-value">
+                        {dashboardStats.total_users}
+                      </div>
+
+                      <div className="dashboard-card-meta">
+                        {dashboardStats.online_users} currently online
+                      </div>
+
+                    </div>
+
+
+                    <div className="dashboard-card">
+
+                      <div className="dashboard-card-label">
+                        Online Users
+                      </div>
+
+                      <div className="dashboard-card-value">
+                        {dashboardStats.online_users}
+                      </div>
+
+                      <div className="dashboard-card-meta">
+                        Active sessions
+                      </div>
+
+                    </div>
+
+
+                    <div className="dashboard-card">
+
+                      <div className="dashboard-card-label">
+                        Total Conversations
+                      </div>
+
+                      <div className="dashboard-card-value">
+                        {dashboardStats.total_conversations}
+                      </div>
+
+                      <div className="dashboard-card-meta">
+                        {dashboardStats.conversations_today} today
+                      </div>
+
+                    </div>
+
+
+                    <div className="dashboard-card">
+
+                      <div className="dashboard-card-label">
+                        Total Messages
+                      </div>
+
+                      <div className="dashboard-card-value">
+                        {dashboardStats.total_messages}
+                      </div>
+
+                      <div className="dashboard-card-meta">
+                        {dashboardStats.messages_today} today
+                      </div>
+
+                    </div>
+
+
+                    <div className="dashboard-card">
+
+                      <div className="dashboard-card-label">
+                        Total Documents
+                      </div>
+
+                      <div className="dashboard-card-value">
+                        {dashboardStats.total_documents}
+                      </div>
+
+                      <div className="dashboard-card-meta">
+                        {dashboardStats.total_document_chunks} chunks stored
+                      </div>
+
+                    </div>
+
+
+                    <div className="dashboard-card">
+
+                      <div className="dashboard-card-label">
+                        Widget Conversations
+                      </div>
+
+                      <div className="dashboard-card-value">
+                        {dashboardStats.widget_conversations}
+                      </div>
+
+                      <div className="dashboard-card-meta">
+                        Standalone widget sessions
+                      </div>
+
+                    </div>
+
+                  </div>
+
+
+                  {/* SECONDARY METRICS */}
+
+                  <div className="dashboard-secondary-grid">
+
+                    <div className="dashboard-summary-card">
+
+                      <span>
+                        Blocked Users
+                      </span>
+
+                      <strong>
+                        {dashboardStats.blocked_users}
+                      </strong>
+
+                    </div>
+
+
+                    <div className="dashboard-summary-card">
+
+                      <span>
+                        Conversations Today
+                      </span>
+
+                      <strong>
+                        {dashboardStats.conversations_today}
+                      </strong>
+
+                    </div>
+
+
+                    <div className="dashboard-summary-card">
+
+                      <span>
+                        Messages Today
+                      </span>
+
+                      <strong>
+                        {dashboardStats.messages_today}
+                      </strong>
+
+                    </div>
+
+
+                    <div className="dashboard-summary-card">
+
+                      <span>
+                        Document Chunks
+                      </span>
+
+                      <strong>
+                        {dashboardStats.total_document_chunks}
+                      </strong>
+
+                    </div>
+
+                  </div>
+
+
+                  {dashboardError && (
+
+                    <div className="dashboard-inline-error">
+                      {dashboardError}
+                    </div>
+
+                  )}
+
+                </>
+
+              )
+
+              : null}
+
+      </div>
+
+    )}
+
+
+    {/* =====================================================
+        CHAT
+    ===================================================== */}
+
+    {activeView ===
+      'chat' &&
+
+      hasPermission(
+        'chatbot'
+      ) && (
+
+      <div className="chat-main">
+
+        <div className="chat-header">
+
+          AI Document Assistant
+
+        </div>
+
+        <div className="chat-messages">
+
+          {messages.length ===
+            0
+            ? (
+
+              <div className="empty-state">
+
+                <h3>
+                  No messages yet
+                </h3>
+
+                <p>
+                  Upload a document and ask a question to get started.
+                </p>
+
+              </div>
+
+            )
+            : (
+
+              messages.map(
+                (
+                  m,
+                  i
+                ) => (
+
+                  <div
+                    key={
+                      i
+                    }
+
+                    className={`message ${m.role}`}
+                  >
+
+                    {m.role ===
+                      'bot'
+
+                      ? renderMessageText(
+                          m.text
+                        )
+
+                      : m.text}
+
+                    {m.role ===
+                      'bot' &&
+
+                      m.sources
+                        ?.length >
+                        0 && (
+
+                      <div className="message-sources">
+
+                        <strong>
+                          Source:
+                        </strong>{' '}
+
+                        {m.sources.join(
+                          ', '
+                        )}
+
+                      </div>
+
+                    )}
+
+                  </div>
+
+                )
+              )
+
+            )}
+
+        </div>
+
+        <div className="chat-input-area">
+
+          <input
+            className="chat-input"
+
+            placeholder="Ask something about your documents..."
+
+            value={
+              input
+            }
+
+            onChange={(e) =>
+              setInput(
+                e.target.value
+              )
+            }
+
+            onKeyDown={(e) =>
+              e.key ===
+                'Enter' &&
+              handleSend()
+            }
+          />
+
+          <button
+            className="send-btn"
+
+            onClick={
+              handleSend
+            }
+          >
+            Send
+          </button>
+
+        </div>
+
+      </div>
+
+    )}
+
+
+    {/* =====================================================
+        DOCUMENTS
+    ===================================================== */}
+
+    {activeView ===
+      'documents' &&
+
+      hasPermission(
+        'documents'
+      ) && (
+
+      <div className="docs-page">
+
+        <div className="docs-page-header">
+
+          <h2>
+            Documents
+          </h2>
+
+          <div
+            className="doc-actions-row"
+
+            style={{
+              maxWidth:
+                160
+            }}
+          >
+
+            <button
+              className="doc-action-btn primary"
+
+              onClick={() =>
+                fileInputRef
+                  .current
+                  .click()
+              }
+            >
+              Upload files
+            </button>
+
+            <input
+              ref={
+                fileInputRef
+              }
+
+              type="file"
+
+              accept=".pdf,.doc,.docx,.txt"
+
+              multiple
+
+              onChange={
+                handleFileChange
+              }
+
+              style={{
+                display:
+                  'none'
+              }}
+            />
+
+          </div>
+
+        </div>
+
+        <div className="docs-page-filter-row">
+
+          <input
+            className="doc-search"
+
+            placeholder="Find documents..."
+
+            value={
+              docSearch
+            }
+
+            onChange={(e) =>
+              setDocSearch(
+                e.target.value
+              )
+            }
+          />
+
+          <select
+            className="doc-filter-select"
+
+            value={
+              docFilter
+            }
+
+            onChange={(e) =>
+              setDocFilter(
+                e.target.value
+              )
+            }
+          >
+
+            <option value="all">
+              All types
+            </option>
+
+            <option value="pdf">
+              PDF
+            </option>
+
+            <option value="doc">
+              DOC/DOCX
+            </option>
+
+            <option value="txt">
+              TXT
+            </option>
+
+          </select>
+
+        </div>
+
+        {filteredFiles.length ===
+          0
+          ? (
+
+            <div className="no-docs">
+              No documents uploaded yet.
+            </div>
+
+          )
+          : (
+
+            <div className="table-container">
+
+              <table className="docs-page-table">
+
+                <thead>
+
+                  <tr>
+
+                    <th>
+                      Name
+                    </th>
+
+                    <th>
+                      Size
+                    </th>
+
+                    <th>
+                      Uploaded
+                    </th>
+
+                    <th>
+                      MIME Type
+                    </th>
+
+                    {isAdmin && (
+
+                      <th>
+                        Owner
+                      </th>
+
+                    )}
+
+                    {isAdmin && (
+
+                      <th></th>
+
+                    )}
+
+                  </tr>
+
+                </thead>
+
+                <tbody>
+
+                  {filteredFiles.map(
+                    (
+                      f,
+                      i
+                    ) => (
+
+                      <tr
+                        key={
+                          i
+                        }
+                      >
+
+                        <td>
+                          {f.document_name}
+                        </td>
+
+                        <td>
+
+                          {f.file_size
+
+                            ? (
+                                f.file_size /
+                                1024
+                              ).toFixed(
+                                1
+                              ) +
+                              ' KB'
+
+                            : '—'}
+
+                        </td>
+
+                        <td>
+
+                          {f.uploaded_at
+
+                            ? new Date(
+                                f.uploaded_at
+                              )
+                                .toLocaleDateString()
+
+                            : '—'}
+
+                        </td>
+
+                        <td>
+
+                          {getMimeType(
+                            f.document_name
+                          )}
+
+                        </td>
+
+                        {isAdmin && (
+
+                          <td>
+
+                            {f.owner_username ||
+                              '—'}
+
+                          </td>
+
+                        )}
+
+                        {isAdmin && (
+
+                          <td>
+
+                            <button
+                              className="doc-row-delete"
+
+                              title="Delete"
+
+                              onClick={() =>
+                                handleDelete(
+                                  f.document_name
+                                )
+                              }
+                            >
+                              🗑
+                            </button>
+
+                          </td>
+
+                        )}
+
+                      </tr>
+
+                    )
+                  )}
+
+                </tbody>
+
+              </table>
+
+            </div>
+
+          )}
+
+        <div className="status-text">
+
+          {status}
+
+        </div>
+
+      </div>
+
+    )}
+
+
+    {/* =====================================================
+        WIDGET CONFIGURATION
+    ===================================================== */}
+
+    {activeView ===
+      'widgetConfig' &&
+
+      hasPermission(
+        'widget_configuration'
+      ) && (
+
+      <WidgetConfiguration />
+
+    )}
+
+
+    {/* =====================================================
+        WIDGET HISTORY
+    ===================================================== */}
+
+    {activeView ===
+      'widgetHistory' &&
+
+      hasPermission(
+        'widget_history'
+      ) && (
+
+      <div className="docs-page">
+
+        <div className="docs-page-header">
+
+          <h2>
+            Widget Sessions
+          </h2>
+
+        </div>
+
+        <div className="widget-history-layout">
+
+          <div className="widget-session-list">
+
+            <h3>
+              Sessions
+            </h3>
+
+            <input
+              type="text"
+
+              className="doc-search"
+
+              placeholder="Search sessions..."
+
+              value={
+                widgetSessionSearch
+              }
+
+              onChange={(e) =>
+                setWidgetSessionSearch(
+                  e.target.value
+                )
+              }
+            />
+
+            {filteredWidgetSessions
+              .length ===
               0
               ? (
 
-                <div className="empty-state">
+                <div className="widget-no-sessions">
 
-                  <h3>
-                    No messages yet
-                  </h3>
-
-                  <p>
-                    Upload a document and ask a question to get started.
-                  </p>
+                  {widgetSessionSearch
+                    ? 'No matching sessions found.'
+                    : 'No widget sessions found.'}
 
                 </div>
 
               )
               : (
 
-                messages.map(
-                  (
-                    m,
-                    i
-                  ) => (
+                <div className="table-container">
 
-                    <div
-                      key={
-                        i
-                      }
+                  <table className="docs-page-table widget-session-table">
 
-                      className={`message ${m.role}`}
-                    >
+                    <thead>
 
-                      {m.role ===
-                        'bot'
+                      <tr>
 
-                        ? renderMessageText(
-                            m.text
-                          )
+                        <th>
+                          #
+                        </th>
 
-                        : m.text}
+                        <th>
+                          Session ID
+                        </th>
 
-                      {m.role ===
-                        'bot' &&
+                      </tr>
 
-                        m.sources
-                          ?.length >
-                          0 && (
+                    </thead>
 
-                        <div className="message-sources">
+                    <tbody>
 
-                          <strong>
-                            Source:
-                          </strong>{' '}
+                      {filteredWidgetSessions.map(
+                        (
+                          session,
+                          index
+                        ) => (
 
-                          {m.sources.join(
-                            ', '
-                          )}
+                          <tr
+                            key={
+                              session
+                                .session_id
+                            }
 
-                        </div>
+                            className={
+                              selectedWidgetSession
+                                ?.session_id ===
+                              session
+                                .session_id
 
+                                ? 'widget-session-row active'
+
+                                : 'widget-session-row'
+                            }
+
+                            onClick={() =>
+                              fetchWidgetSession(
+                                session
+                                  .session_id
+                              )
+                            }
+                          >
+
+                            <td>
+                              {index + 1}
+                            </td>
+
+                            <td>
+                              {session.session_id}
+                            </td>
+
+                          </tr>
+
+                        )
                       )}
 
-                    </div>
+                    </tbody>
 
-                  )
-                )
+                  </table>
+
+                </div>
 
               )}
 
           </div>
 
-          <div className="chat-input-area">
+          <div className="widget-session-details">
 
-            <input
-              className="chat-input"
+            {widgetSessionLoading
+              ? (
 
-              placeholder="Ask something about your documents..."
+                <div className="widget-session-loading">
 
-              value={
-                input
-              }
+                  Loading conversation...
 
-              onChange={(e) =>
-                setInput(
-                  e.target.value
+                </div>
+
+              )
+
+              : selectedWidgetSession
+                ? (
+
+                  <>
+
+                    <div className="chat-header">
+
+                      Widget Conversation
+
+                    </div>
+
+                    <div className="chat-messages">
+
+                      {selectedWidgetSession
+                        .messages
+                        ?.length >
+                        0
+                        ? (
+
+                          selectedWidgetSession
+                            .messages
+                            .map(
+                              (
+                                msg,
+                                index
+                              ) => {
+
+                                const messageText =
+                                  msg.text ||
+                                  msg.message ||
+                                  msg.content ||
+                                  '';
+
+                                const messageRole =
+                                  msg.sender ||
+                                  msg.role ||
+                                  'bot';
+
+                                const isBot =
+                                  messageRole ===
+                                    'bot' ||
+
+                                  messageRole ===
+                                    'assistant';
+
+                                return (
+
+                                  <div
+                                    key={
+                                      index
+                                    }
+
+                                    className={`message ${
+                                      isBot
+                                        ? 'bot'
+                                        : 'user'
+                                    }`}
+                                  >
+
+                                    {isBot
+
+                                      ? renderMessageText(
+                                          messageText
+                                        )
+
+                                      : messageText}
+
+                                  </div>
+
+                                );
+                              }
+                            )
+
+                        )
+                        : (
+
+                          <div className="widget-no-messages">
+
+                            No messages in this session.
+
+                          </div>
+
+                        )}
+
+                    </div>
+
+                  </>
+
                 )
-              }
+                : (
 
-              onKeyDown={(e) =>
-                e.key ===
-                  'Enter' &&
-                handleSend()
-              }
-            />
+                  <div className="empty-state">
 
-            <button
-              className="send-btn"
+                    <h3>
+                      Select a session
+                    </h3>
 
-              onClick={
-                handleSend
-              }
-            >
-              Send
-            </button>
+                    <p>
+                      Select a widget session from the left to view its conversation.
+                    </p>
+
+                  </div>
+
+                )}
 
           </div>
 
         </div>
 
-      )}
+      </div>
 
-      {/* =====================================================
-          DOCUMENTS
-      ===================================================== */}
+    )}
 
-      {activeView ===
-        'documents' &&
 
-        hasPermission(
-          'documents'
-        ) && (
+    {/* =====================================================
+        USERS
+    ===================================================== */}
 
-        <div className="docs-page">
+    {activeView ===
+      'users' &&
 
-          <div className="docs-page-header">
+      hasPermission(
+        'users'
+      ) && (
 
-            <h2>
-              Documents
-            </h2>
+      <div className="docs-page">
 
-            <div
-              className="doc-actions-row"
+        <div className="docs-page-header">
 
-              style={{
-                maxWidth:
-                  160
-              }}
-            >
+          <h2>
+            Users
+          </h2>
+
+          <button
+            className="create-user-btn"
+
+            onClick={() => {
+
+              setPermissionUser(
+                null
+              );
+
+              setSelectedUserPermissions(
+                []
+              );
+
+              setShowCreateUser(
+                true
+              );
+
+            }}
+          >
+            + Create User
+          </button>
+
+        </div>
+
+
+        {showCreateUser && (
+
+          <form
+            className="permission-panel"
+
+            onSubmit={
+              handleCreateUser
+            }
+          >
+
+            <div className="permission-panel-header">
+
+              <div>
+
+                <h3>
+                  Create User
+                </h3>
+
+                <p>
+                  Create an account and choose exactly which sections the user can access.
+                </p>
+
+              </div>
 
               <button
-                className="doc-action-btn primary"
+                type="button"
 
-                onClick={() =>
-                  fileInputRef
-                    .current
-                    .click()
+                className="permission-close-btn"
+
+                disabled={
+                  createUserLoading
+                }
+
+                onClick={
+                  closeCreateUser
                 }
               >
-                Upload files
+                ×
               </button>
-
-              <input
-                ref={
-                  fileInputRef
-                }
-
-                type="file"
-
-                accept=".pdf,.doc,.docx,.txt"
-
-                multiple
-
-                onChange={
-                  handleFileChange
-                }
-
-                style={{
-                  display:
-                    'none'
-                }}
-              />
 
             </div>
 
-          </div>
 
-          <div className="docs-page-filter-row">
-
-            <input
-              className="doc-search"
-
-              placeholder="Find documents..."
-
-              value={
-                docSearch
-              }
-
-              onChange={(e) =>
-                setDocSearch(
-                  e.target.value
-                )
-              }
-            />
-
-            <select
-              className="doc-filter-select"
-
-              value={
-                docFilter
-              }
-
-              onChange={(e) =>
-                setDocFilter(
-                  e.target.value
-                )
-              }
-            >
-
-              <option value="all">
-                All types
-              </option>
-
-              <option value="pdf">
-                PDF
-              </option>
-
-              <option value="doc">
-                DOC/DOCX
-              </option>
-
-              <option value="txt">
-                TXT
-              </option>
-
-            </select>
-
-          </div>
-
-          {filteredFiles.length ===
-            0
-            ? (
-
-              <div className="no-docs">
-                No documents uploaded yet.
-              </div>
-
-            )
-            : (
-
-              <div className="table-container">
-
-                <table className="docs-page-table">
-
-                  <thead>
-
-                    <tr>
-
-                      <th>
-                        Name
-                      </th>
-
-                      <th>
-                        Size
-                      </th>
-
-                      <th>
-                        Uploaded
-                      </th>
-
-                      <th>
-                        MIME Type
-                      </th>
-
-                      {isAdmin && (
-
-                        <th>
-                          Owner
-                        </th>
-
-                      )}
-
-                      {isAdmin && (
-
-                        <th></th>
-
-                      )}
-
-                    </tr>
-
-                  </thead>
-
-                  <tbody>
-
-                    {filteredFiles.map(
-                      (
-                        f,
-                        i
-                      ) => (
-
-                        <tr
-                          key={
-                            i
-                          }
-                        >
-
-                          <td>
-
-                            {f.document_name}
-
-                          </td>
-
-                          <td>
-
-                            {f.file_size
-
-                              ? (
-                                  f.file_size /
-                                  1024
-                                ).toFixed(
-                                  1
-                                ) +
-                                ' KB'
-
-                              : '—'}
-
-                          </td>
-
-                          <td>
-
-                            {f.uploaded_at
-
-                              ? new Date(
-                                  f.uploaded_at
-                                )
-                                  .toLocaleDateString()
-
-                              : '—'}
-
-                          </td>
-
-                          <td>
-
-                            {getMimeType(
-                              f.document_name
-                            )}
-
-                          </td>
-
-                          {isAdmin && (
-
-                            <td>
-
-                              {f.owner_username ||
-                                '—'}
-
-                            </td>
-
-                          )}
-
-                          {isAdmin && (
-
-                            <td>
-
-                              <button
-                                className="doc-row-delete"
-
-                                title="Delete"
-
-                                onClick={() =>
-                                  handleDelete(
-                                    f.document_name
-                                  )
-                                }
-                              >
-                                🗑
-                              </button>
-
-                            </td>
-
-                          )}
-
-                        </tr>
-
-                      )
-                    )}
-
-                  </tbody>
-
-                </table>
-
-              </div>
-
-            )}
-
-          <div className="status-text">
-
-            {status}
-
-          </div>
-
-        </div>
-
-      )}
-
-      {/* =====================================================
-          WIDGET CONFIGURATION
-      ===================================================== */}
-
-      {activeView ===
-        'widgetConfig' &&
-
-        hasPermission(
-          'widget_configuration'
-        ) && (
-
-        <WidgetConfiguration />
-
-      )}
-
-      {/* =====================================================
-          WIDGET HISTORY
-      ===================================================== */}
-
-      {activeView ===
-        'widgetHistory' &&
-
-        hasPermission(
-          'widget_history'
-        ) && (
-
-        <div className="docs-page">
-
-          <div className="docs-page-header">
-
-            <h2>
-              Widget Sessions
-            </h2>
-
-          </div>
-
-          <div className="widget-history-layout">
-
-            <div className="widget-session-list">
-
-              <h3>
-                Sessions
-              </h3>
+            <div className="docs-page-filter-row">
 
               <input
                 type="text"
 
                 className="doc-search"
 
-                placeholder="Search sessions..."
+                placeholder="Email / Username"
 
                 value={
-                  widgetSessionSearch
+                  newUser.username
+                }
+
+                disabled={
+                  createUserLoading
                 }
 
                 onChange={(e) =>
-                  setWidgetSessionSearch(
-                    e.target.value
+                  setNewUser(
+                    (prev) => ({
+                      ...prev,
+
+                      username:
+                        e.target.value
+                    })
                   )
                 }
               />
 
-              {filteredWidgetSessions
-                .length ===
-                0
-                ? (
+              <input
+                type="password"
 
-                  <div className="widget-no-sessions">
+                className="doc-search"
 
-                    {widgetSessionSearch
-                      ? 'No matching sessions found.'
-                      : 'No widget sessions found.'}
+                placeholder="Password"
 
-                  </div>
+                value={
+                  newUser.password
+                }
 
-                )
-                : (
+                disabled={
+                  createUserLoading
+                }
 
-                  <div className="table-container">
+                onChange={(e) =>
+                  setNewUser(
+                    (prev) => ({
+                      ...prev,
 
-                    <table className="docs-page-table widget-session-table">
-
-                      <thead>
-
-                        <tr>
-
-                          <th>
-                            #
-                          </th>
-
-                          <th>
-                            Session ID
-                          </th>
-
-                        </tr>
-
-                      </thead>
-
-                      <tbody>
-
-                        {filteredWidgetSessions.map(
-                          (
-                            session,
-                            index
-                          ) => (
-
-                            <tr
-                              key={
-                                session
-                                  .session_id
-                              }
-
-                              className={
-                                selectedWidgetSession
-                                  ?.session_id ===
-                                session
-                                  .session_id
-
-                                  ? 'widget-session-row active'
-
-                                  : 'widget-session-row'
-                              }
-
-                              onClick={() =>
-                                fetchWidgetSession(
-                                  session
-                                    .session_id
-                                )
-                              }
-                            >
-
-                              <td>
-                                {index + 1}
-                              </td>
-
-                              <td>
-
-                                {
-                                  session
-                                    .session_id
-                                }
-
-                              </td>
-
-                            </tr>
-
-                          )
-                        )}
-
-                      </tbody>
-
-                    </table>
-
-                  </div>
-
-                )}
-
-            </div>
-
-            <div className="widget-session-details">
-
-              {widgetSessionLoading
-                ? (
-
-                  <div className="widget-session-loading">
-
-                    Loading conversation...
-
-                  </div>
-
-                )
-
-                : selectedWidgetSession
-                  ? (
-
-                    <>
-
-                      <div className="chat-header">
-
-                        Widget Conversation
-
-                      </div>
-
-                      <div className="chat-messages">
-
-                        {selectedWidgetSession
-                          .messages
-                          ?.length >
-                          0
-                          ? (
-
-                            selectedWidgetSession
-                              .messages
-                              .map(
-                                (
-                                  msg,
-                                  index
-                                ) => {
-
-                                  const messageText =
-                                    msg.text ||
-                                    msg.message ||
-                                    msg.content ||
-                                    '';
-
-                                  const messageRole =
-                                    msg.sender ||
-                                    msg.role ||
-                                    'bot';
-
-                                  const isBot =
-                                    messageRole ===
-                                      'bot' ||
-
-                                    messageRole ===
-                                      'assistant';
-
-                                  return (
-
-                                    <div
-                                      key={
-                                        index
-                                      }
-
-                                      className={`message ${
-                                        isBot
-                                          ? 'bot'
-                                          : 'user'
-                                      }`}
-                                    >
-
-                                      {isBot
-
-                                        ? renderMessageText(
-                                            messageText
-                                          )
-
-                                        : messageText}
-
-                                    </div>
-
-                                  );
-                                }
-                              )
-
-                          )
-                          : (
-
-                            <div className="widget-no-messages">
-
-                              No messages in this session.
-
-                            </div>
-
-                          )}
-
-                      </div>
-
-                    </>
-
+                      password:
+                        e.target.value
+                    })
                   )
-                  : (
-
-                    <div className="empty-state">
-
-                      <h3>
-                        Select a session
-                      </h3>
-
-                      <p>
-                        Select a widget session from the left to view its conversation.
-                      </p>
-
-                    </div>
-
-                  )}
-
-            </div>
-
-          </div>
-
-        </div>
-
-      )}
-
-      {/* =====================================================
-          USERS
-      ===================================================== */}
-
-      {activeView ===
-        'users' &&
-
-        hasPermission(
-          'users'
-        ) && (
-
-        <div className="docs-page">
-
-          {/* USERS HEADER */}
-
-          <div className="docs-page-header">
-
-            <h2>
-              Users
-            </h2>
-
-         <button
-  className="create-user-btn"
-  onClick={() => {
-    setPermissionUser(null);
-    setSelectedUserPermissions([]);
-    setShowCreateUser(true);
-  }}
->
-  + Create User
-</button>
-
-          </div>
-
-          {/* =================================================
-              CREATE USER FORM
-          ================================================= */}
-
-          {showCreateUser && (
-
-            <form
-              className="permission-panel"
-
-              onSubmit={
-                handleCreateUser
-              }
-            >
-
-              <div className="permission-panel-header">
-
-                <div>
-
-                  <h3>
-                    Create User
-                  </h3>
-
-                  <p>
-                    Create an account and choose exactly which sections the user can access.
-                  </p>
-
-                </div>
-
-                <button
-                  type="button"
-
-                  className="permission-close-btn"
-
-                  disabled={
-                    createUserLoading
-                  }
-
-                  onClick={
-                    closeCreateUser
-                  }
-                >
-                  ×
-                </button>
-
-              </div>
-
-              {/* USERNAME / PASSWORD / ROLE */}
-
-              <div className="docs-page-filter-row">
-
-                <input
-                  type="text"
-
-                  className="doc-search"
-
-                  placeholder="Email / Username"
-
-                  value={
-                    newUser.username
-                  }
-
-                  disabled={
-                    createUserLoading
-                  }
-
-                  onChange={(e) =>
-                    setNewUser(
-                      (prev) => ({
-                        ...prev,
-
-                        username:
-                          e.target.value
-                      })
-                    )
-                  }
-                />
-
-                <input
-                  type="password"
-
-                  className="doc-search"
-
-                  placeholder="Password"
-
-                  value={
-                    newUser.password
-                  }
-
-                  disabled={
-                    createUserLoading
-                  }
-
-                  onChange={(e) =>
-                    setNewUser(
-                      (prev) => ({
-                        ...prev,
-
-                        password:
-                          e.target.value
-                      })
-                    )
-                  }
-                />
-
-                <select
-                  className="user-role-select"
-
-                  value={
-                    newUser.role_id
-                  }
-
-                  disabled={
-                    createUserLoading
-                  }
-
-                  onChange={(e) =>
-                    setNewUser(
-                      (prev) => ({
-                        ...prev,
-
-                        role_id:
-                          e.target.value
-                      })
-                    )
-                  }
-                >
-
-                  <option value="">
-                    Select role
-                  </option>
-
-                  {roles.map(
-                    (role) => (
-
-                      <option
-                        key={
-                          role.id
-                        }
-
-                        value={
-                          role.id
-                        }
-                      >
-                        {role.name}
-                      </option>
-
-                    )
-                  )}
-
-                </select>
-
-              </div>
-
-              {/* CREATE USER PERMISSIONS */}
-
-              <div
-                className="section-label"
-
-                style={{
-                  marginTop:
-                    18,
-
-                  marginBottom:
-                    10
-                }}
-              >
-                Permissions
-              </div>
-
-              <div className="permission-list">
-
-                {allPermissions.map(
-                  (permission) => {
-
-                    const isChecked =
-                      newUser
-                        .permission_ids
-                        .includes(
-                          permission.id
-                        );
-
-                    return (
-
-                      <label
-                        key={
-                          permission.id
-                        }
-
-                        className="permission-item"
-                      >
-
-                        <input
-                          type="checkbox"
-
-                          checked={
-                            isChecked
-                          }
-
-                          disabled={
-                            createUserLoading
-                          }
-
-                          onChange={() => {
-
-                            setNewUser(
-                              (prev) => {
-
-                                const alreadySelected =
-                                  prev
-                                    .permission_ids
-                                    .includes(
-                                      permission.id
-                                    );
-
-                                return {
-
-                                  ...prev,
-
-                                  permission_ids:
-                                    alreadySelected
-
-                                      ? prev
-                                          .permission_ids
-                                          .filter(
-                                            (id) =>
-                                              id !==
-                                              permission.id
-                                          )
-
-                                      : [
-                                          ...prev
-                                            .permission_ids,
-
-                                          permission.id
-                                        ]
-                                };
-                              }
-                            );
-
-                          }}
-                        />
-
-                        <span>
-
-                          {permission
-                            .name
-                            .replaceAll(
-                              '_',
-                              ' '
-                            )}
-
-                        </span>
-
-                      </label>
-
-                    );
-                  }
-                )}
-
-              </div>
-
-              {/* CREATE USER BUTTONS */}
-
-              <div
-                style={{
-                  display:
-                    'flex',
-
-                  gap:
-                    10
-                }}
-              >
-
-                <button
-                  type="button"
-
-                  className="doc-action-btn"
-
-                  disabled={
-                    createUserLoading
-                  }
-
-                  onClick={
-                    closeCreateUser
-                  }
-                >
-                  Cancel
-                </button>
-
-                <button
-                  type="submit"
-
-                  className="permission-save-btn"
-
-                  disabled={
-                    createUserLoading
-                  }
-                >
-
-                  {createUserLoading
-                    ? 'Creating...'
-                    : 'Create User'}
-
-                </button>
-
-              </div>
-
-            </form>
-
-          )}
-
-          {/* =================================================
-              USERS TABLE
-          ================================================= */}
-
-          <div className="table-container users-table-container">
-
-            <table className="docs-page-table">
-
-              <thead>
-
-                <tr>
-
-                  <th>
-                    Status
-                  </th>
-
-                  <th>
-                    Email
-                  </th>
-
-                  <th>
-                    Role
-                  </th>
-
-                  <th>
-                    Account
-                  </th>
-
-                  <th>
-                    Last Login
-                  </th>
-
-                  <th>
-                    Actions
-                  </th>
-
-                </tr>
-
-              </thead>
-
-              <tbody>
-
-                {onlineUsers.map(
-                  (user) => {
-
-                    const isCurrentUser =
-                      user.username ===
-                      currentUser
-                        ?.username;
-
-                    return (
-
-                      <tr
-                        key={
-                          user.id
-                        }
-                      >
-
-                        <td>
-
-                          {user.is_online
-                            ? '🟢 Online'
-                            : '🔴 Offline'}
-
-                        </td>
-
-                        <td>
-
-                          {user.username}
-
-                        </td>
-
-                        {/* ROLE */}
-
-                        <td className="user-role-cell">
-
-                          <select
-                            className="user-role-select"
-
-                            value={
-                              user.role_id ||
-                              ''
-                            }
-
-                            disabled={
-                              isCurrentUser
-                            }
-
-                            onChange={(e) =>
-                              handleRoleChange(
-                                user.id,
-
-                                Number(
-                                  e.target.value
-                                )
-                              )
-                            }
-                          >
-
-                            {roles.map(
-                              (role) => (
-
-                                <option
-                                  key={
-                                    role.id
-                                  }
-
-                                  value={
-                                    role.id
-                                  }
-                                >
-                                  {role.name}
-                                </option>
-
-                              )
-                            )}
-
-                          </select>
-
-                        </td>
-
-                        {/* ACCOUNT */}
-
-                        <td>
-
-                          {user.is_blocked
-                            ? 'Blocked'
-                            : 'Active'}
-
-                        </td>
-
-                        {/* LAST LOGIN */}
-
-                        <td>
-
-                          {user.last_login
-
-                            ? new Date(
-                                user.last_login
-                              )
-                                .toLocaleString()
-
-                            : '-'}
-
-                        </td>
-
-                        {/* ACTION MENU */}
-
-                        <td className="user-actions-cell">
-
-                          <div className="user-actions-wrapper">
-
-                            <button
-                              className="user-actions-btn"
-
-                              disabled={
-                                isCurrentUser
-                              }
-
-                              title="Actions"
-
-                              onClick={() =>
-                                setOpenActionMenu(
-
-                                  openActionMenu ===
-                                    user.id
-
-                                    ? null
-
-                                    : user.id
-                                )
-                              }
-                            >
-                              ⋮
-                            </button>
-
-                            {openActionMenu ===
-                              user.id && (
-
-                              <div className="user-actions-menu">
-
-                                {/* BLOCK */}
-
-                                <button
-                                  onClick={async () => {
-
-                                    await handleToggleBlock(
-                                      user.id,
-                                      user.is_blocked
-                                    );
-
-                                    setOpenActionMenu(
-                                      null
-                                    );
-                                  }}
-                                >
-
-                                  {user.is_blocked
-                                    ? 'Unblock'
-                                    : 'Block'}
-
-                                </button>
-
-                                {/* RESET PASSWORD */}
-
-                                <button
-                                  onClick={() =>
-                                    handleResetPassword(
-                                      user.id
-                                    )
-                                  }
-                                >
-                                  Reset Password
-                                </button>
-
-                                {/* MANAGE PERMISSIONS */}
-
-                                <button
-                                  onClick={() =>
-                                    openPermissionEditor(
-                                      user
-                                    )
-                                  }
-                                >
-                                  Manage Permissions
-                                </button>
-
-                                {/* DELETE USER */}
-
-                                <button
-                                  className="danger"
-
-                                  onClick={() =>
-                                    handleDeleteUser(
-                                      user.id
-                                    )
-                                  }
-                                >
-                                  Delete User
-                                </button>
-
-                              </div>
-
-                            )}
-
-                          </div>
-
-                        </td>
-
-                      </tr>
-
-                    );
-                  }
-                )}
-
-              </tbody>
-
-            </table>
-
-          </div>
-
-          {/* =================================================
-              MANAGE EXISTING USER PERMISSIONS
-          ================================================= */}
-
-          {permissionUser && (
-
-            <div className="permission-panel">
-
-              <div className="permission-panel-header">
-
-                <div>
-
-                  <h3>
-                    Manage Permissions
-                  </h3>
-
-                  <p>
-                    {permissionUser.username}
-                  </p>
-
-                </div>
-
-                <button
-                  className="permission-close-btn"
-
-                  onClick={() => {
-
-                    setPermissionUser(
-                      null
-                    );
-
-                    setSelectedUserPermissions(
-                      []
-                    );
-                  }}
-                >
-                  ×
-                </button>
-
-              </div>
-
-              <div className="permission-list">
-
-                {allPermissions.map(
-                  (permission) => {
-
-                    const isChecked =
-                      selectedUserPermissions
-                        .includes(
-                          permission.name
-                        );
-
-                    return (
-
-                      <label
-                        key={
-                          permission.id
-                        }
-
-                        className="permission-item"
-                      >
-
-                        <input
-                          type="checkbox"
-
-                          checked={
-                            isChecked
-                          }
-
-                          onChange={() => {
-
-                            if (
-                              isChecked
-                            ) {
-
-                              setSelectedUserPermissions(
-
-                                selectedUserPermissions
-                                  .filter(
-                                    (name) =>
-                                      name !==
-                                      permission.name
-                                  )
-                              );
-
-                            } else {
-
-                              setSelectedUserPermissions([
-                                ...selectedUserPermissions,
-
-                                permission.name
-                              ]);
-                            }
-
-                          }}
-                        />
-
-                        <span>
-
-                          {permission.name
-                            .replaceAll(
-                              '_',
-                              ' '
-                            )}
-
-                        </span>
-
-                      </label>
-
-                    );
-                  }
-                )}
-
-              </div>
-
-              <button
-                className="permission-save-btn"
-
-                onClick={
-                  handleSavePermissions
+                }
+              />
+
+              <select
+                className="user-role-select"
+
+                value={
+                  newUser.role_id
+                }
+
+                disabled={
+                  createUserLoading
+                }
+
+                onChange={(e) =>
+                  setNewUser(
+                    (prev) => ({
+                      ...prev,
+
+                      role_id:
+                        e.target.value
+                    })
+                  )
                 }
               >
-                Save Permissions
+
+                <option value="">
+                  Select role
+                </option>
+
+                {roles.map(
+                  (role) => (
+
+                    <option
+                      key={
+                        role.id
+                      }
+
+                      value={
+                        role.id
+                      }
+                    >
+                      {role.name}
+                    </option>
+
+                  )
+                )}
+
+              </select>
+
+            </div>
+
+
+            <div
+              className="section-label"
+
+              style={{
+                marginTop:
+                  18,
+
+                marginBottom:
+                  10
+              }}
+            >
+              Permissions
+            </div>
+
+
+            <div className="permission-list">
+
+              {allPermissions.map(
+                (permission) => {
+
+                  const isChecked =
+                    newUser
+                      .permission_ids
+                      .includes(
+                        permission.id
+                      );
+
+                  return (
+
+                    <label
+                      key={
+                        permission.id
+                      }
+
+                      className="permission-item"
+                    >
+
+                      <input
+                        type="checkbox"
+
+                        checked={
+                          isChecked
+                        }
+
+                        disabled={
+                          createUserLoading
+                        }
+
+                        onChange={() => {
+
+                          setNewUser(
+                            (prev) => {
+
+                              const alreadySelected =
+                                prev
+                                  .permission_ids
+                                  .includes(
+                                    permission.id
+                                  );
+
+                              return {
+
+                                ...prev,
+
+                                permission_ids:
+                                  alreadySelected
+
+                                    ? prev
+                                        .permission_ids
+                                        .filter(
+                                          (id) =>
+                                            id !==
+                                            permission.id
+                                        )
+
+                                    : [
+                                        ...prev
+                                          .permission_ids,
+
+                                        permission.id
+                                      ]
+                              };
+                            }
+                          );
+
+                        }}
+                      />
+
+                      <span>
+
+                        {permission
+                          .name
+                          .replaceAll(
+                            '_',
+                            ' '
+                          )}
+
+                      </span>
+
+                    </label>
+
+                  );
+                }
+              )}
+
+            </div>
+
+
+            <div
+              style={{
+                display:
+                  'flex',
+
+                gap:
+                  10
+              }}
+            >
+
+              <button
+                type="button"
+
+                className="doc-action-btn"
+
+                disabled={
+                  createUserLoading
+                }
+
+                onClick={
+                  closeCreateUser
+                }
+              >
+                Cancel
+              </button>
+
+              <button
+                type="submit"
+
+                className="permission-save-btn"
+
+                disabled={
+                  createUserLoading
+                }
+              >
+
+                {createUserLoading
+                  ? 'Creating...'
+                  : 'Create User'}
+
               </button>
 
             </div>
 
-          )}
+          </form>
 
-        </div>
+        )}
 
-      )}
 
-      {/* =====================================================
-          ACTIVITY LOGS
-      ===================================================== */}
+        <div className="table-container users-table-container">
 
-      {activeView ===
-        'activity' &&
+          <table className="docs-page-table">
 
-        hasPermission(
-          'activity_logs'
-        ) && (
+            <thead>
 
-        <div className="docs-page">
+              <tr>
 
-          <div className="docs-page-header">
+                <th>
+                  Status
+                </th>
 
-            <h2>
-              Activity Logs
-            </h2>
+                <th>
+                  Email
+                </th>
 
-          </div>
+                <th>
+                  Role
+                </th>
 
-          <div className="table-container">
+                <th>
+                  Account
+                </th>
 
-            <table className="docs-page-table">
+                <th>
+                  Last Login
+                </th>
 
-              <thead>
+                <th>
+                  Actions
+                </th>
 
-                <tr>
+              </tr>
 
-                  <th>
-                    User
-                  </th>
+            </thead>
 
-                  <th>
-                    Action
-                  </th>
+            <tbody>
 
-                  <th>
-                    Details
-                  </th>
+              {onlineUsers.map(
+                (user) => {
 
-                  <th>
-                    Time
-                  </th>
+                  const isCurrentUser =
+                    user.username ===
+                    currentUser
+                      ?.username;
 
-                </tr>
-
-              </thead>
-
-              <tbody>
-
-                {activityLog.map(
-                  (
-                    entry,
-                    i
-                  ) => (
+                  return (
 
                     <tr
                       key={
-                        i
+                        user.id
                       }
                     >
 
                       <td>
 
-                        {entry.username ||
-                          '—'}
+                        {user.is_online
+                          ? '🟢 Online'
+                          : '🔴 Offline'}
 
                       </td>
 
                       <td>
+                        {user.username}
+                      </td>
 
-                        {entry.action}
+
+                      <td className="user-role-cell">
+
+                        <select
+                          className="user-role-select"
+
+                          value={
+                            user.role_id ||
+                            ''
+                          }
+
+                          disabled={
+                            isCurrentUser
+                          }
+
+                          onChange={(e) =>
+                            handleRoleChange(
+                              user.id,
+
+                              Number(
+                                e.target.value
+                              )
+                            )
+                          }
+                        >
+
+                          {roles.map(
+                            (role) => (
+
+                              <option
+                                key={
+                                  role.id
+                                }
+
+                                value={
+                                  role.id
+                                }
+                              >
+                                {role.name}
+                              </option>
+
+                            )
+                          )}
+
+                        </select>
 
                       </td>
 
+
                       <td>
 
-                        {entry.details ||
-                          '—'}
+                        {user.is_blocked
+                          ? 'Blocked'
+                          : 'Active'}
 
                       </td>
 
+
                       <td>
 
-                        {entry.created_at
+                        {user.last_login
 
                           ? new Date(
-                              entry.created_at
+                              user.last_login
                             )
                               .toLocaleString()
 
-                          : '—'}
+                          : '-'}
+
+                      </td>
+
+
+                      <td className="user-actions-cell">
+
+                        <div className="user-actions-wrapper">
+
+                          <button
+                            className="user-actions-btn"
+
+                            disabled={
+                              isCurrentUser
+                            }
+
+                            title="Actions"
+
+                            onClick={() =>
+                              setOpenActionMenu(
+
+                                openActionMenu ===
+                                  user.id
+
+                                  ? null
+
+                                  : user.id
+                              )
+                            }
+                          >
+                            ⋮
+                          </button>
+
+
+                          {openActionMenu ===
+                            user.id && (
+
+                            <div className="user-actions-menu">
+
+                              <button
+                                onClick={async () => {
+
+                                  await handleToggleBlock(
+                                    user.id,
+                                    user.is_blocked
+                                  );
+
+                                  setOpenActionMenu(
+                                    null
+                                  );
+
+                                }}
+                              >
+
+                                {user.is_blocked
+                                  ? 'Unblock'
+                                  : 'Block'}
+
+                              </button>
+
+
+                              <button
+                                onClick={() =>
+                                  handleResetPassword(
+                                    user.id
+                                  )
+                                }
+                              >
+                                Reset Password
+                              </button>
+
+
+                              <button
+                                onClick={() =>
+                                  openPermissionEditor(
+                                    user
+                                  )
+                                }
+                              >
+                                Manage Permissions
+                              </button>
+
+
+                              <button
+                                className="danger"
+
+                                onClick={() =>
+                                  handleDeleteUser(
+                                    user.id
+                                  )
+                                }
+                              >
+                                Delete User
+                              </button>
+
+                            </div>
+
+                          )}
+
+                        </div>
 
                       </td>
 
                     </tr>
 
-                  )
-                )}
+                  );
+                }
+              )}
 
-              </tbody>
+            </tbody>
 
-            </table>
-
-          </div>
+          </table>
 
         </div>
 
-      )}
 
-      {/* =====================================================
-          FLOATING WIDGET
-      ===================================================== */}
+        {permissionUser && (
 
-      <div
-        style={{
-          display:
-            activeView ===
-              'widgetConfig'
+          <div className="permission-panel">
 
-              ? 'none'
+            <div className="permission-panel-header">
 
-              : 'block'
-        }}
-      >
+              <div>
 
-        <Widget />
+                <h3>
+                  Manage Permissions
+                </h3>
+
+                <p>
+                  {permissionUser.username}
+                </p>
+
+              </div>
+
+              <button
+                className="permission-close-btn"
+
+                onClick={() => {
+
+                  setPermissionUser(
+                    null
+                  );
+
+                  setSelectedUserPermissions(
+                    []
+                  );
+
+                }}
+              >
+                ×
+              </button>
+
+            </div>
+
+
+            <div className="permission-list">
+
+              {allPermissions.map(
+                (permission) => {
+
+                  const isChecked =
+                    selectedUserPermissions
+                      .includes(
+                        permission.name
+                      );
+
+                  return (
+
+                    <label
+                      key={
+                        permission.id
+                      }
+
+                      className="permission-item"
+                    >
+
+                      <input
+                        type="checkbox"
+
+                        checked={
+                          isChecked
+                        }
+
+                        onChange={() => {
+
+                          if (
+                            isChecked
+                          ) {
+
+                            setSelectedUserPermissions(
+
+                              selectedUserPermissions
+                                .filter(
+                                  (name) =>
+                                    name !==
+                                    permission.name
+                                )
+                            );
+
+                          } else {
+
+                            setSelectedUserPermissions([
+                              ...selectedUserPermissions,
+
+                              permission.name
+                            ]);
+
+                          }
+
+                        }}
+                      />
+
+                      <span>
+
+                        {permission.name
+                          .replaceAll(
+                            '_',
+                            ' '
+                          )}
+
+                      </span>
+
+                    </label>
+
+                  );
+                }
+              )}
+
+            </div>
+
+
+            <button
+              className="permission-save-btn"
+
+              onClick={
+                handleSavePermissions
+              }
+            >
+              Save Permissions
+            </button>
+
+          </div>
+
+        )}
 
       </div>
 
+    )}
+
+
+    {/* =====================================================
+        ACTIVITY LOGS
+    ===================================================== */}
+
+    {activeView ===
+      'activity' &&
+
+      hasPermission(
+        'activity_logs'
+      ) && (
+
+      <div className="docs-page">
+
+        <div className="docs-page-header">
+
+          <h2>
+            Activity Logs
+          </h2>
+
+        </div>
+
+        <div className="table-container">
+
+          <table className="docs-page-table">
+
+            <thead>
+
+              <tr>
+
+                <th>
+                  User
+                </th>
+
+                <th>
+                  Action
+                </th>
+
+                <th>
+                  Details
+                </th>
+
+                <th>
+                  Time
+                </th>
+
+              </tr>
+
+            </thead>
+
+            <tbody>
+
+              {activityLog.map(
+                (
+                  entry,
+                  i
+                ) => (
+
+                  <tr
+                    key={
+                      i
+                    }
+                  >
+
+                    <td>
+
+                      {entry.username ||
+                        '—'}
+
+                    </td>
+
+                    <td>
+                      {entry.action}
+                    </td>
+
+                    <td>
+
+                      {entry.details ||
+                        '—'}
+
+                    </td>
+
+                    <td>
+
+                      {entry.created_at
+
+                        ? new Date(
+                            entry.created_at
+                          )
+                            .toLocaleString()
+
+                        : '—'}
+
+                    </td>
+
+                  </tr>
+
+                )
+              )}
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+      </div>
+
+    )}
+
+
+    {/* =====================================================
+        FLOATING WIDGET
+    ===================================================== */}
+
+    <div
+      style={{
+        display:
+          activeView ===
+            'widgetConfig'
+
+            ? 'none'
+
+            : 'block'
+      }}
+    >
+
+      <Widget />
+
     </div>
-  );
+
+  </div>
+
+);
 }
 
 export default App;
