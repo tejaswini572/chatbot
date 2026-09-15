@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Widget from './components/Widget/Widget';
 import WidgetConfiguration from './components/Widget/WidgetConfiguration';
-import { motion } from 'motion/react'
+import {motion , AnimatePresence } from 'motion/react'
 import {
   LineChart,
   Line,
@@ -2114,10 +2114,11 @@ return (
 </svg>
   </button>
 )}
+<AnimatePresence>
 {isHistoryOpen && (
   <>
     {/* Dark overlay */}
-    <div
+    <motion.div
       className="history-overlay"
       onClick={() => setIsHistoryOpen(false)}
     />
@@ -2126,6 +2127,7 @@ return (
     <motion.div className="history-drawer"
       initial={{ x: "100%", opacity: 0 }}
   animate={{ x: 0, opacity: 1 }}
+  exit={{ x: "100%", opacity: 0 }}
   transition={{
     duration: 0.3,
     ease: "easeOut"
@@ -2215,6 +2217,7 @@ return (
     </motion.div>
   </>
 )}
+</AnimatePresence>
     {/* =====================================================
         DASHBOARD
     ===================================================== */}
@@ -2324,9 +2327,28 @@ return (
 
                   {/* MAIN KPI CARDS */}
 
-                  <div className="dashboard-kpi-grid">
-
-                    <div className="dashboard-card">
+                  <motion.div
+  className="dashboard-kpi-grid"
+  initial="hidden"
+  animate="visible"
+  variants={{
+    hidden: {},
+    visible: {
+      transition: {
+        staggerChildren: 0.08
+      }
+    }
+  }}
+>
+                    <motion.div
+  className="dashboard-card"
+  initial={{ opacity: 0, y: 15 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{
+    duration: 0.35,
+    ease: "easeOut"
+  }}
+>
 
                       <div className="dashboard-card-label">
                         Total Users
@@ -2340,10 +2362,17 @@ return (
                         {dashboardStats.online_users} currently online
                       </div>
 
-                    </div>
+                    </motion.div>
 
 
-                    <div className="dashboard-card">
+                    <motion.div className="dashboard-card"
+                    initial={{ opacity: 0, y: 15 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{
+    duration: 0.35,
+    ease: "easeOut"
+  }}
+>
 
                       <div className="dashboard-card-label">
                         Online Users
@@ -2357,10 +2386,18 @@ return (
                         Active sessions
                       </div>
 
-                    </div>
+                    </motion.div>
 
 
-                    <div className="dashboard-card">
+                    <motion.div
+  className="dashboard-card"
+  initial={{ opacity: 0, y: 15 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{
+    duration: 0.35,
+    ease: "easeOut"
+  }}
+>
 
                       <div className="dashboard-card-label">
                         Total Conversations
@@ -2374,10 +2411,18 @@ return (
                         {dashboardStats.conversations_today} today
                       </div>
 
-                    </div>
+                    </motion.div>
 
 
-                    <div className="dashboard-card">
+                  <motion.div
+  className="dashboard-card"
+  initial={{ opacity: 0, y: 15 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{
+    duration: 0.35,
+    ease: "easeOut"
+  }}
+>
 
                       <div className="dashboard-card-label">
                         Total Messages
@@ -2391,10 +2436,18 @@ return (
                         {dashboardStats.messages_today} today
                       </div>
 
-                    </div>
+                    </motion.div>
 
 
-                    <div className="dashboard-card">
+                   <motion.div
+  className="dashboard-card"
+  initial={{ opacity: 0, y: 15 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{
+    duration: 0.35,
+    ease: "easeOut"
+  }}
+>
 
                       <div className="dashboard-card-label">
                         Total Documents
@@ -2408,10 +2461,18 @@ return (
                         {dashboardStats.total_document_chunks} chunks stored
                       </div>
 
-                    </div>
+                    </motion.div>
 
 
-                    <div className="dashboard-card">
+                    <motion.div
+  className="dashboard-card"
+  initial={{ opacity: 0, y: 15 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{
+    duration: 0.35,
+    ease: "easeOut"
+  }}
+>
 
                       <div className="dashboard-card-label">
                         Widget Conversations
@@ -2425,9 +2486,9 @@ return (
                         Standalone widget sessions
                       </div>
 
-                    </div>
+                    </motion.div>
 
-                  </div>
+                  </motion.div>
                 <div className="dashboard-chart-card">
   <div className="dashboard-chart-header">
     <h3>Conversations Over Time</h3>
