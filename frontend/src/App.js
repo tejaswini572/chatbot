@@ -2342,13 +2342,22 @@ return (
 >
                     <motion.div
   className="dashboard-card"
-  initial={{ opacity: 0, y: 15 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{
-    duration: 0.35,
-    ease: "easeOut"
+  variants={{
+    hidden: {
+      opacity: 0,
+      y: 15
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.35,
+        ease: "easeOut"
+      }
+    }
   }}
 >
+
 
                       <div className="dashboard-card-label">
                         Total Users
@@ -2365,14 +2374,24 @@ return (
                     </motion.div>
 
 
-                    <motion.div className="dashboard-card"
-                    initial={{ opacity: 0, y: 15 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{
-    duration: 0.35,
-    ease: "easeOut"
+                    <motion.div
+  className="dashboard-card"
+  variants={{
+    hidden: {
+      opacity: 0,
+      y: 15
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.35,
+        ease: "easeOut"
+      }
+    }
   }}
 >
+
 
                       <div className="dashboard-card-label">
                         Online Users
@@ -2391,11 +2410,19 @@ return (
 
                     <motion.div
   className="dashboard-card"
-  initial={{ opacity: 0, y: 15 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{
-    duration: 0.35,
-    ease: "easeOut"
+  variants={{
+    hidden: {
+      opacity: 0,
+      y: 15
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.35,
+        ease: "easeOut"
+      }
+    }
   }}
 >
 
@@ -2416,14 +2443,21 @@ return (
 
                   <motion.div
   className="dashboard-card"
-  initial={{ opacity: 0, y: 15 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{
-    duration: 0.35,
-    ease: "easeOut"
+  variants={{
+    hidden: {
+      opacity: 0,
+      y: 15
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.35,
+        ease: "easeOut"
+      }
+    }
   }}
 >
-
                       <div className="dashboard-card-label">
                         Total Messages
                       </div>
@@ -2438,14 +2472,21 @@ return (
 
                     </motion.div>
 
-
-                   <motion.div
+<motion.div
   className="dashboard-card"
-  initial={{ opacity: 0, y: 15 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{
-    duration: 0.35,
-    ease: "easeOut"
+  variants={{
+    hidden: {
+      opacity: 0,
+      y: 15
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.35,
+        ease: "easeOut"
+      }
+    }
   }}
 >
 
@@ -2466,11 +2507,19 @@ return (
 
                     <motion.div
   className="dashboard-card"
-  initial={{ opacity: 0, y: 15 }}
-  animate={{ opacity: 1, y: 0 }}
-  transition={{
-    duration: 0.35,
-    ease: "easeOut"
+  variants={{
+    hidden: {
+      opacity: 0,
+      y: 15
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.35,
+        ease: "easeOut"
+      }
+    }
   }}
 >
 
@@ -2489,7 +2538,16 @@ return (
                     </motion.div>
 
                   </motion.div>
-                <div className="dashboard-chart-card">
+               <motion.div
+  className="dashboard-chart-card"
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{
+    duration: 0.45,
+    delay: 0.25,
+    ease: "easeOut"
+  }}
+>
   <div className="dashboard-chart-header">
     <h3>Conversations Over Time</h3>
     <p>Number of chatbot conversations created over time</p>
@@ -2515,8 +2573,17 @@ return (
       </LineChart>
     </ResponsiveContainer>
   </div>
-</div>
-<div className="dashboard-chart-card">
+</motion.div>
+<motion.div
+  className="dashboard-chart-card"
+  initial={{ opacity: 0, y: 20 }}
+  animate={{ opacity: 1, y: 0 }}
+  transition={{
+    duration: 0.45,
+    delay: 0.25,
+    ease: "easeOut"
+  }}
+>
   <div className="dashboard-chart-header">
     <h3>Messages Per Day</h3>
     <p>Number of messages sent over time</p>
@@ -2540,7 +2607,7 @@ return (
       </BarChart>
     </ResponsiveContainer>
   </div>
-</div>
+</motion.div>
 <div className="dashboard-chart-card">
 
   <div className="dashboard-chart-header">
