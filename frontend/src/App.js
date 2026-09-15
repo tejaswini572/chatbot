@@ -5,22 +5,37 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import Widget from './components/Widget/Widget';
 import WidgetConfiguration from './components/Widget/WidgetConfiguration';
+import {
+  LineChart,
+  Line,
+  Cell,
+  Legend,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Bar,
+  BarChart,
+  Pie,
+  PieChart
+} from 'recharts';
 
 const API_BASE = 'http://localhost:8000';
 
 function App() {
   const [activeView, setActiveView] = useState('chat');
-
+  const [conversationChartData, setConversationChartData] = useState([]);
   const [uploadedDocs, setUploadedDocs] = useState([]);
   const [status, setStatus] = useState('');
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
-
+  const [users, setUsers] = useState([]);
   const [docSearch, setDocSearch] = useState('');
   const [docFilter, setDocFilter] = useState('all');
-
+  const [messageChartData, setMessageChartData] = useState([]);
   const [showUserMenu, setShowUserMenu] = useState(false);
-
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
   const [conversationId, setConversationId] = useState(null);
 
@@ -75,6 +90,9 @@ function App() {
 const [dashboardStats, setDashboardStats] = useState(null);
 const [dashboardLoading, setDashboardLoading] = useState(false);
 const [dashboardError, setDashboardError] = useState('');
+const [dashboardDateRange, setDashboardDateRange] = useState('all');
+const [dashboardUserId, setDashboardUserId] = useState('');
+const [dashboardSource, setDashboardSource] = useState('all');
   const isAdmin = currentUser?.role === 'admin';
 
   // ============================================================
@@ -228,9 +246,18 @@ const fetchDashboardStats = async () => {
     setDashboardLoading(true);
     setDashboardError('');
 
-    const response = await authFetch(
-      `${API_BASE}/dashboard/stats`
-    );
+    const params = new URLSearchParams();
+
+params.append('date_range', dashboardDateRange);
+params.append('source', dashboardSource);
+
+if (dashboardUserId) {
+  params.append('user_id', dashboardUserId);
+}
+
+const response = await authFetch(
+  `${API_BASE}/dashboard/stats?${params.toString()}`
+);
 
     if (!response.ok) {
       throw new Error(
@@ -348,6 +375,7 @@ const fetchDashboardStats = async () => {
           await response.json();
 
         setOnlineUsers(data);
+        setUsers(data);
 
       } catch (err) {
         console.error(
@@ -875,7 +903,94 @@ const fetchDashboardStats = async () => {
         alert(err.message);
       }
     };
+const fetchConversationChartData = async () => {
+  try {
+    const params = new URLSearchParams();
 
+    params.append(
+      'date_range',
+      dashboardDateRange
+    );
+
+    if (dashboardUserId) {
+      params.append(
+        'user_id',
+        dashboardUserId
+      );
+    }
+
+    const response = await authFetch(
+      `${API_BASE}/dashboard/conversations-over-time?${params.toString()}`
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        'Failed to fetch conversation chart data'
+      );
+    }
+
+    const data = await response.json();
+
+    setConversationChartData(
+      data.conversations || []
+    );
+
+  } catch (err) {
+    console.error(
+      'Failed to fetch conversation chart data:',
+      err
+    );
+  }
+};
+const fetchMessageChartData = async () => {
+  try {
+    const params = new URLSearchParams();
+
+    params.append(
+      'date_range',
+      dashboardDateRange
+    );
+
+    if (dashboardUserId) {
+      params.append(
+        'user_id',
+        dashboardUserId
+      );
+    }
+
+    const response = await authFetch(
+      `${API_BASE}/dashboard/messages-over-time?${params.toString()}`
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        'Failed to fetch message chart data'
+      );
+    }
+
+    const data = await response.json();
+
+    setMessageChartData(
+      data.messages || []
+    );
+
+  } catch (err) {
+    console.error(
+      'Failed to fetch message chart data:',
+      err
+    );
+  }
+};
+const conversationSourceData = [
+  {
+    name: 'Chatbot',
+    value: dashboardStats?.total_conversations || 0
+  },
+  {
+    name: 'Widget',
+    value: dashboardStats?.widget_conversations || 0
+  }
+];
   // ============================================================
   // ACTIVITY LOG
   // ============================================================
@@ -1006,11 +1121,28 @@ const fetchDashboardStats = async () => {
   // ============================================================
 useEffect(() => {
 
+  // Load existing normal chat conversations
+  if (permissions.includes('chatbot')) {
+    loadConversations();
+  }
+
+  // Load existing uploaded documents
+  if (permissions.includes('documents')) {
+    fetchDocuments();
+  }
+
+
   if (
     activeView === 'dashboard' &&
     permissions.includes('dashboard')
   ) {
     fetchDashboardStats();
+    fetchConversationChartData();
+    fetchMessageChartData();
+
+    if (permissions.includes('users')) {
+      fetchOnlineUsers();
+    }
   }
 
   if (
@@ -1037,11 +1169,14 @@ useEffect(() => {
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
+
 }, [
   activeView,
-  permissions
+  permissions,
+  dashboardDateRange,
+  dashboardUserId,
+  dashboardSource
 ]);
-
   // ============================================================
   // SWITCH TO FIRST ALLOWED PAGE
   // ============================================================
@@ -1859,81 +1994,10 @@ return (
 
         {/* RECENT CHATS */}
 
-        {activeView ===
-          'chat' &&
+        
+          
 
-          hasPermission(
-            'chatbot'
-          ) && (
-
-          <>
-
-            <div className="section-label">
-              Recent chats
-            </div>
-
-            {chatHistory.map(
-              (c) => (
-
-                <div
-                  key={
-                    c.id
-                  }
-
-                  className={`chat-history-item-row ${
-                    conversationId ===
-                      c.id
-                      ? 'active'
-                      : ''
-                  }`}
-                >
-
-                  <span
-                    className="chat-history-title"
-
-                    onClick={() =>
-                      handleSelectConversation(
-                        c.id
-                      )
-                    }
-                  >
-
-                    {c.title}
-
-                    {isAdmin &&
-                    c.owner_username
-                      ? ` — ${c.owner_username}`
-                      : ''}
-
-                  </span>
-
-                  <button
-                    className="chat-history-delete-btn"
-
-                    title="Delete chat"
-
-                    onClick={(e) => {
-
-                      e.stopPropagation();
-
-                      handleDeleteConversation(
-                        c.id
-                      );
-                    }}
-                  >
-                    🗑
-                  </button>
-
-                </div>
-
-              )
-            )}
-
-          </>
-
-        )}
-
-      </div>
+      </div> 
 
       {/* USER FOOTER */}
 
@@ -2025,7 +2089,99 @@ return (
 
     </div>
 
+{/* CHAT HISTORY BUTTON */}
 
+{hasPermission('chatbot') && (
+  <button
+    className="history-icon-btn"
+    onClick={() => setIsHistoryOpen(true)}
+    title="Chat History"
+  >
+    🕘
+  </button>
+)}
+{isHistoryOpen && (
+  <>
+    {/* Dark overlay */}
+    <div
+      className="history-overlay"
+      onClick={() => setIsHistoryOpen(false)}
+    />
+
+    {/* History drawer */}
+    <div className="history-drawer">
+
+      <div className="history-drawer-header">
+        <div>
+          <h3>Chat History</h3>
+          <p>Your previous conversations</p>
+        </div>
+
+        <button
+          className="history-close-btn"
+          onClick={() => setIsHistoryOpen(false)}
+        >
+          ✕
+        </button>
+      </div>
+
+      <div className="history-drawer-content">
+
+        {chatHistory.length === 0 ? (
+          <div className="history-empty">
+            No conversations yet.
+          </div>
+        ) : (
+          chatHistory.map((c) => (
+
+            <div
+              key={c.id}
+              className={`history-drawer-item ${
+                conversationId === c.id
+                  ? 'active'
+                  : ''
+              }`}
+              onClick={() => {
+                handleSelectConversation(c.id);
+                setIsHistoryOpen(false);
+              }}
+            >
+
+              <div className="history-drawer-item-info">
+
+                <span className="history-drawer-title">
+                  {c.title}
+                </span>
+
+                {isAdmin && c.owner_username && (
+                  <span className="history-drawer-owner">
+                    {c.owner_username}
+                  </span>
+                )}
+
+              </div>
+
+              <button
+                className="history-drawer-delete"
+                title="Delete chat"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleDeleteConversation(c.id);
+                }}
+              >
+                🗑
+              </button>
+
+            </div>
+
+          ))
+        )}
+
+      </div>
+
+    </div>
+  </>
+)}
     {/* =====================================================
         DASHBOARD
     ===================================================== */}
@@ -2053,7 +2209,41 @@ return (
             </p>
 
           </div>
+<div className="dashboard-filters">
 
+  <select
+    value={dashboardDateRange}
+    onChange={(e) => setDashboardDateRange(e.target.value)}
+  >
+    <option value="all">All Time</option>
+    <option value="today">Today</option>
+    <option value="7days">Last 7 Days</option>
+    <option value="30days">Last 30 Days</option>
+  </select>
+
+  <select
+    value={dashboardUserId}
+    onChange={(e) => setDashboardUserId(e.target.value)}
+  >
+    <option value="">All Users</option>
+
+    {users.map((user) => (
+      <option key={user.id} value={user.id}>
+        {user.username}
+      </option>
+    ))}
+  </select>
+
+  <select
+    value={dashboardSource}
+    onChange={(e) => setDashboardSource(e.target.value)}
+  >
+    <option value="all">All Sources</option>
+    <option value="chatbot">Chatbot</option>
+    <option value="widget">Widget</option>
+  </select>
+
+</div>
           <button
             className="dashboard-refresh-btn"
 
@@ -2205,7 +2395,102 @@ return (
                     </div>
 
                   </div>
+                <div className="dashboard-chart-card">
+  <div className="dashboard-chart-header">
+    <h3>Conversations Over Time</h3>
+    <p>Number of chatbot conversations created over time</p>
+  </div>
 
+  <div className="dashboard-chart-container">
+    <ResponsiveContainer width="100%" height={320}>
+      <LineChart data={conversationChartData}>
+        <CartesianGrid strokeDasharray="3 3" />
+
+        <XAxis dataKey="date" />
+
+        <YAxis allowDecimals={false} />
+
+        <Tooltip />
+
+        <Line
+          type="monotone"
+          dataKey="count"
+          strokeWidth={3}
+          activeDot={{ r: 6 }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  </div>
+</div>
+<div className="dashboard-chart-card">
+  <div className="dashboard-chart-header">
+    <h3>Messages Per Day</h3>
+    <p>Number of messages sent over time</p>
+  </div>
+
+  <div className="dashboard-chart-container">
+    <ResponsiveContainer width="100%" height={320}>
+      <BarChart data={messageChartData}>
+        <CartesianGrid strokeDasharray="3 3" />
+
+        <XAxis dataKey="date" />
+
+        <YAxis allowDecimals={false} />
+
+        <Tooltip />
+
+        <Bar
+          dataKey="count"
+          radius={[6, 6, 0, 0]}
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  </div>
+</div>
+<div className="dashboard-chart-card">
+
+  <div className="dashboard-chart-header">
+    <h3>Conversation Sources</h3>
+    <p>
+      Distribution of chatbot and widget conversations
+    </p>
+  </div>
+
+  <div className="dashboard-chart-container">
+
+    <ResponsiveContainer width="100%" height={320}>
+
+      <PieChart>
+
+        <Pie
+          data={conversationSourceData}
+          dataKey="value"
+          nameKey="name"
+          cx="50%"
+          cy="50%"
+          innerRadius={70}
+          outerRadius={110}
+          paddingAngle={4}
+          label
+        >
+          {conversationSourceData.map((entry, index) => (
+            <Cell
+              key={`cell-${index}`}
+            />
+          ))}
+        </Pie>
+
+        <Tooltip />
+
+        <Legend />
+
+      </PieChart>
+
+    </ResponsiveContainer>
+
+  </div>
+
+</div>
 
                   {/* SECONDARY METRICS */}
 

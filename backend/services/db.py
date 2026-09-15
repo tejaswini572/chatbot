@@ -1211,9 +1211,33 @@ def create_admin_user(username, hashed_password, role_id, permission_ids):
         if conn:
             conn.close()
 
-def get_dashboard_stats():
+def get_dashboard_stats(date_range="all" , user_id=None):
     conn = None
     cur= None
+    date_condition = ""
+    params = []
+
+    if date_range == "today":
+        date_condition = "AND created_at::date = CURRENT_DATE"
+
+    elif date_range == "7days":
+        date_condition = "AND created_at >= CURRENT_DATE - INTERVAL '6 days'"
+
+    elif date_range == "30days":
+        date_condition = "AND created_at >= CURRENT_DATE - INTERVAL '29 days'"
+    user_condition = ""
+    message_user_condition = ""
+    conversation_params = []
+    message_params = []
+    if user_id is not None:
+        user_condition = "AND user_id = %s"
+        message_user_condition = "AND c.user_id = %s"
+        conversation_params = []
+        message_params = []
+
+    if user_id is not None:
+        conversation_params.append(user_id)
+        message_params.append(user_id)
     try:
         conn= get_connection()
         cur=conn.cursor()
@@ -1231,19 +1255,32 @@ def get_dashboard_stats():
         select count(*) from users where is_blocked = TRUE """)
         blocked_users=cur.fetchone()[0]
 
-        cur.execute("""
-        select count (*)  from conversations """)
-        total_conversations =cur.fetchone()[0];
+        cur.execute(
+            f"""
+        SELECT COUNT(*)
+    FROM conversations
+    WHERE 1=1
+    {date_condition}
+     {user_condition} """,
+     conversation_params)
+        total_conversations =cur.fetchone()[0]
 
         cur.execute("""
         select count(*) from conversations where created_at::date = CURRENT_DATE"""
         )
         conversations_today = cur.fetchone()[0]
 
-        cur.execute("""
-            SELECT COUNT(*)
-            FROM messages
-        """)
+        cur.execute(
+           f"""
+    SELECT COUNT(*)
+    FROM messages m
+    JOIN conversations c
+        ON m.conversation_id = c.id
+    WHERE 1=1
+    {date_condition.replace("created_at", "m.created_at")}
+    {message_user_condition}
+    """,
+    message_params)
         total_messages = cur.fetchone()[0]
 
         cur.execute("""
@@ -1289,4 +1326,144 @@ def get_dashboard_stats():
 
         if conn:
             conn.close()
+def get_conversations_over_time(
+    date_range="all",
+    user_id=None
+):
+    conn = None
+    cur = None
 
+    date_condition = ""
+    user_condition = ""
+    params = []
+
+    if date_range == "today":
+        date_condition = "AND created_at::date = CURRENT_DATE"
+
+    elif date_range == "7days":
+        date_condition = """
+            AND created_at >= CURRENT_DATE - INTERVAL '6 days'
+        """
+
+    elif date_range == "30days":
+        date_condition = """
+            AND created_at >= CURRENT_DATE - INTERVAL '29 days'
+        """
+
+    if user_id is not None:
+        user_condition = "AND user_id = %s"
+        params.append(user_id)
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            f"""
+            SELECT
+                created_at::date AS date,
+                COUNT(*) AS count
+            FROM conversations
+            WHERE 1=1
+            {date_condition}
+            {user_condition}
+            GROUP BY created_at::date
+            ORDER BY created_at::date
+            """,
+            params
+        )
+
+        rows = cur.fetchall()
+
+        return [
+            {
+                "date": str(row[0]),
+                "count": row[1]
+            }
+            for row in rows
+        ]
+
+    except Exception as e:
+        logger.error(
+            f"Failed to fetch conversation analytics: {str(e)}"
+        )
+        raise
+
+    finally:
+        if cur:
+            cur.close()
+
+        if conn:
+            conn.close()
+
+def get_messages_over_time(
+    date_range="all",
+    user_id=None
+):
+    conn = None
+    cur = None
+
+    date_condition = ""
+    user_condition = ""
+    params = []
+
+    if date_range == "today":
+        date_condition = "AND m.created_at::date = CURRENT_DATE"
+
+    elif date_range == "7days":
+        date_condition = """
+            AND m.created_at >= CURRENT_DATE - INTERVAL '6 days'
+        """
+
+    elif date_range == "30days":
+        date_condition = """
+            AND m.created_at >= CURRENT_DATE - INTERVAL '29 days'
+        """
+
+    if user_id is not None:
+        user_condition = "AND c.user_id = %s"
+        params.append(user_id)
+
+    try:
+        conn = get_connection()
+        cur = conn.cursor()
+
+        cur.execute(
+            f"""
+            SELECT
+                m.created_at::date AS date,
+                COUNT(*) AS count
+            FROM messages m
+            JOIN conversations c
+                ON m.conversation_id = c.id
+            WHERE 1=1
+            {date_condition}
+            {user_condition}
+            GROUP BY m.created_at::date
+            ORDER BY m.created_at::date
+            """,
+            params
+        )
+
+        rows = cur.fetchall()
+
+        return [
+            {
+                "date": str(row[0]),
+                "count": row[1]
+            }
+            for row in rows
+        ]
+
+    except Exception as e:
+        logger.error(
+            f"Failed to fetch message analytics: {str(e)}"
+        )
+        raise
+
+    finally:
+        if cur:
+            cur.close()
+
+        if conn:
+            conn.close()
