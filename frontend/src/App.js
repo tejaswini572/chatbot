@@ -38,7 +38,7 @@ function App() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [chatHistory, setChatHistory] = useState([]);
   const [conversationId, setConversationId] = useState(null);
-
+const [historySearch, setHistorySearch] = useState('');
   const fileInputRef = useRef(null);
 
   const [sessionExpired, setSessionExpired] = useState(false);
@@ -2124,7 +2124,15 @@ return (
           ✕
         </button>
       </div>
-
+<div className="history-search-container">
+  <input
+    type="text"
+    placeholder="Search conversations..."
+    value={historySearch}
+    onChange={(e) => setHistorySearch(e.target.value)}
+    className="history-search-input"
+  />
+</div>
       <div className="history-drawer-content">
 
         {chatHistory.length === 0 ? (
@@ -2132,7 +2140,12 @@ return (
             No conversations yet.
           </div>
         ) : (
-          chatHistory.map((c) => (
+          chatHistory
+  .filter((c) =>
+    (c.title || '')
+      .toLowerCase()
+      .includes(historySearch.toLowerCase())
+  ).map((c) => (
 
             <div
               key={c.id}

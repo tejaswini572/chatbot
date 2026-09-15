@@ -1516,3 +1516,32 @@ body {
   color: #94a3b8;
   font-size: 14px;
 }
+.history-search-container {
+  padding: 14px 14px 4px;
+}
+
+.history-search-input {
+  width: 100%;
+  box-sizing: border-box;
+
+  padding: 11px 14px;
+
+  background: #151f2b;
+  color: #f8fafc;
+
+  border: 1px solid #243242;
+  border-radius: 9px;
+
+  font-size: 13px;
+  outline: none;
+
+  transition: border-color 0.2s ease;
+}
+
+.history-search-input::placeholder {
+  color: #64748b;
+}
+
+.history-search-input:focus {
+  border-color: #14b8a6;
+}
